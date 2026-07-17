@@ -4,6 +4,14 @@ import { ClienteEntradaButton } from "./ClienteEntradaButton";
 import { Cuenta } from "@/types/cuentas";
 import { ClienteSalidaButton } from "../salidas/ClienteSalidaButton";
 
+
+// type CuentaOption = {
+//   id: string;
+//   nombre: string;
+//   moneda: string;
+//   estado?: string;
+//   categoria?: string;
+// };
 interface PerfilClienteProps {
   cliente: ClientePerfil["cliente"];
   balance: ClientePerfil["balance"];

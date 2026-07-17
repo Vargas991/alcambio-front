@@ -5,12 +5,14 @@ import { cookies } from 'next/headers';
 import type {
   ApiResponse,
   Cliente,
-  Cuenta,
   EstadoOperacion,
   Moneda,
   Operacion,
   TipoOperacion,
 } from '@/types/operaciones';
+import { Cuenta } from '@/types/cuentas';
+
+
 
 const API_URL = process.env.NEST_API_URL ?? 'http://localhost:3000/api';
 
@@ -89,3 +91,4 @@ export async function getCuentasServer() {
 
   return response.data;
 }
+
