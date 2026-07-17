@@ -1,5 +1,5 @@
 import { formatMoney } from '@/lib/formatters';
-import type { CarteraResponse } from '@/services/clientes.server';
+import type { CarteraResponse } from '@/types/clientes';
 
 type CarteraSummaryProps = {
   cartera: CarteraResponse;

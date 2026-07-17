@@ -27,7 +27,6 @@ export function ClienteFormModal({
   const [documento, setDocumento] = useState('');
   const [telefono, setTelefono] = useState('');
   const [notas, setNotas] = useState('');
-  const [estado, setEstado] = useState('ACTIVO');
 
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');

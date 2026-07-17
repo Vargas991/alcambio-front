@@ -1,4 +1,4 @@
-import type { CarteraResponse } from '@/services/clientes.server';
+import type { CarteraResponse } from '@/types/clientes';
 import { CarteraSectionTable } from './CarteraSectionTable';
 
 type CarteraTableProps = {
