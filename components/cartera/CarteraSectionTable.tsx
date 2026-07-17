@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { FiEye } from 'react-icons/fi';
 
 import { formatMoney } from '@/lib/formatters';
-import type { CarteraClienteItem } from '@/services/clientes.server';
+import type { CarteraClienteItem } from '@/types/clientes';
 
 type CarteraSectionTableProps = {
   title: string;
