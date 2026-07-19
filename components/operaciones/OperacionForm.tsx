@@ -12,6 +12,8 @@ import type {
   Moneda,
   OrigenOperacion,
 } from '@/types/operaciones';
+import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import { parseFormattedNumber } from '@/lib/number-format';
 
 type OperacionFormProps = {
   clientes: Cliente[];
@@ -69,7 +71,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
   }, [clientes, clienteId]);
 
   const preview = useMemo(() => {
-    const monto = Number(montoTransaccion || 0);
+    const monto = parseFormattedNumber(montoTransaccion) || 0;
     const tc = Number(tasaCompra || 0);
     const tv = Number(tasaVenta || 0);
 
@@ -84,7 +86,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
     };
   }, [montoTransaccion, tasaCompra, tasaVenta]);
 
-  const montoNumber = Number(montoTransaccion || 0);
+  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
   const saldoInsuficiente =
      selectedOrigen?.tipo === 'CUENTA' && montoNumber > Number(selectedOrigen.saldo || 0);
 
@@ -109,7 +111,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
       return;
     }
 
-    if (Number(montoTransaccion) <= 0) {
+    if (parseFormattedNumber(montoTransaccion) <= 0) {
       setErrorMessage('Ingrese un monto válido.');
       return;
     }
@@ -135,7 +137,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
               deudorId: selectedCliente.id,
               cuentaOperativaId: selectedOrigen.id,
               monedaTransaccion: selectedOrigen.moneda,
-              montoTransaccion: Number(montoTransaccion),
+              montoTransaccion: parseFormattedNumber(montoTransaccion),
               tasaCompra: Number(tasaCompra),
               tasaVenta: Number(tasaVenta),
               destinatario: selectedCliente.nombre,
@@ -147,7 +149,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
               acreedorId: selectedOrigen.id,
               deudorId: selectedCliente.id,
               monedaTransaccion: moneda,
-              montoTransaccion: Number(montoTransaccion),
+              montoTransaccion: parseFormattedNumber(montoTransaccion),
               tasaCompra: Number(tasaCompra),
               tasaVenta: Number(tasaVenta),
               destinatario: selectedCliente.nombre,
@@ -284,13 +286,19 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
             Monto
           </label>
 
-          <input
+          {/* <input
             type="number"
             value={montoTransaccion}
             onChange={(event) => setMontoTransaccion(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="0"
+          /> */}
+          <FormattedNumberInput
+            value={montoTransaccion}
+            onChange={(value) => setMontoTransaccion(value)}
+            placeholder="0"
           />
+          
         </div>
 
         <div className="lg:col-span-3">

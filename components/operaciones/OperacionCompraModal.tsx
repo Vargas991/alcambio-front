@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { formatMoney, formatNumber } from '@/lib/formatters';
 import type { ClienteResumenItem } from '@/types/clientes';
 import type { Cuenta } from '@/types/cuentas';
+import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import { parseFormattedNumber } from '@/lib/number-format';
 
 type OperacionCompraModalProps = {
   open: boolean;
@@ -31,7 +33,7 @@ export function OperacionCompraModal({
   const [notas, setNotas] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const montoNumber = Number(montoTransaccion || 0);
+  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
   const tasaCompraNumber = Number(tasaCompra || 0);
 
   const totalCompraCop = useMemo(() => {
@@ -167,13 +169,18 @@ export function OperacionCompraModal({
               Monto comprado
             </span>
 
-            <input
+            {/* <input
               type="number"
               min="0"
               step="0.01"
               value={montoTransaccion}
               onChange={(event) => setMontoTransaccion(event.target.value)}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              placeholder="0"
+            /> */}
+            <FormattedNumberInput
+              value={montoTransaccion}
+              onChange={(value) => setMontoTransaccion(value)}
               placeholder="0"
             />
 

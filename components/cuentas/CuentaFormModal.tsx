@@ -10,6 +10,8 @@ import type {
   MonedaCuenta,
   TipoCuenta,
 } from '@/types/cuentas';
+import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import { parseFormattedNumber } from '@/lib/number-format';
 
 type CuentaFormModalProps = {
   open: boolean;
@@ -118,7 +120,7 @@ export function CuentaFormModal({
           categoria,
           moneda,
           tipo,
-          saldoInicial: saldoInicial ? Number(saldoInicial) : 0,
+          saldoInicial: parseFormattedNumber(saldoInicial) || 0,
           aplica4x1000,
           notas: notas.trim() || null,
         });
@@ -228,15 +230,19 @@ export function CuentaFormModal({
               <span className="text-xs font-semibold uppercase text-gray-500">
                 Saldo inicial
               </span>
-
-              <input
+              <FormattedNumberInput
+                value={saldoInicial}
+                onChange={(value) => setSaldoInicial(value)}
+                placeholder="Saldo Incial"
+              />
+              {/* <input
                 type="number"
                 min="0"
                 value={saldoInicial}
                 onChange={(event) => setSaldoInicial(event.target.value)}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
                 placeholder="0"
-              />
+              /> */}
             </label>
           )}
 

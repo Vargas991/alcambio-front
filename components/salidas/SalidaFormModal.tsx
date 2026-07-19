@@ -8,6 +8,8 @@ import { formatMoney } from '@/lib/formatters';
 import type { ClienteResumenItem } from '@/types/clientes';
 import type { Cuenta } from '@/types/cuentas';
 import type { TipoSalida } from '@/types/salidas';
+import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import { parseFormattedNumber } from '@/lib/number-format';
 
 type SalidaFormModalProps = {
   open: boolean;
@@ -50,7 +52,7 @@ export function SalidaFormModal({
   }, [open, initialAcreedorId]);
 
   const selectedCuenta = cuentas.find((cuenta) => cuenta.id === cuentaId);
-  const montoNumber = Number(montoCop || 0);
+  const montoNumber = parseFormattedNumber(montoCop) || 0;
 
   const impuestoProveedor4x1000 = useMemo(() => {
     if (tipo !== 'PAGO_ACREEDOR') return 0;
@@ -223,14 +225,20 @@ export function SalidaFormModal({
               Monto base COP
             </span>
 
-            <input
+
+            <FormattedNumberInput
+              value={montoCop}
+              onChange={(value) => setMontoCop(value)}
+              placeholder="Monto base COP"
+            />
+            {/* <input
               type="number"
               min="1"
               value={montoCop}
               onChange={(event) => setMontoCop(event.target.value)}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
               placeholder="0"
-            />
+            /> */}
           </label>
 
           {tipo === 'PAGO_ACREEDOR' && (
