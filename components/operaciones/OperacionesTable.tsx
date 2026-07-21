@@ -1,12 +1,16 @@
 import { formatDate, formatMoney, formatNumber } from "@/lib/formatters";
-import type { Operacion } from "@/types/operaciones";
+import type { Cliente, Cuenta, Operacion } from "@/types/operaciones";
 
 import { OperacionActions } from "./OperacionActions";
 import Link from "next/link";
 import { FiCheckCircle, FiXCircle } from 'react-icons/fi';
+import { PromedioCompraCuenta } from '@/types/cuentas';
 
 type OperacionesTableProps = {
   operaciones: Operacion[];
+  clientes: Cliente[];
+  cuentas: Cuenta[];
+  promedios?: PromedioCompraCuenta[];
   title?: string;
   description?: string;
 };
@@ -162,7 +166,43 @@ function buildOperacionesTotals(operaciones: Operacion[]) {
   };
 }
 
-export function OperacionesTable({ operaciones, title, description }: OperacionesTableProps) {
+function getDestinoLink(operacion: Operacion) {
+  if (operacion.tipo === 'VENTA') {
+    return {
+      tipo: 'CLIENTE',
+      id: operacion.deudorId ?? operacion.deudor?.id,
+      nombre: operacion.deudor?.nombre ?? operacion.destinatario ?? 'Cliente',
+      href: `/dashboard/clientes/${operacion.deudorId ?? operacion.deudor?.id}`,
+    };
+  }
+
+  if (operacion.tipo === 'COMPRA') {
+    return {
+      tipo: 'CUENTA',
+      id: operacion.cuentaOperativaId ?? operacion.cuentaOperativa?.id,
+      nombre:
+        operacion.cuentaOperativa?.nombre ??
+        operacion.destinatario ??
+        'Cuenta operativa',
+      href: `/dashboard/cuentas/${
+        operacion.cuentaOperativaId ?? operacion.cuentaOperativa?.id
+      }`,
+    };
+  }
+
+  if (operacion.tipo === 'OPERACION_DIRECTA') {
+    return {
+      tipo: 'CLIENTE',
+      id: operacion.deudorId ?? operacion.deudor?.id,
+      nombre: operacion.deudor?.nombre ?? operacion.destinatario ?? 'Cliente',
+      href: `/dashboard/clientes/${operacion.deudorId ?? operacion.deudor?.id}`,
+    };
+  }
+
+  return null;
+}
+
+export function OperacionesTable({ operaciones, clientes, cuentas, promedios, title, description }: OperacionesTableProps) {
   const totals = buildOperacionesTotals(operaciones);
 
   return (
@@ -285,12 +325,23 @@ export function OperacionesTable({ operaciones, title, description }: Operacione
                     </td>
 
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      <Link
-                        href={`/dashboard/clientes/${getClienteId(operacion)}`}
-                      >
-                        {getDestinoName(operacion)}
-                      </Link>
-                    </td>
+                        {(() => {
+                          const destino = getDestinoLink(operacion);
+
+                          if (!destino?.id) {
+                            return <span className="text-gray-400">Sin destino</span>;
+                          }
+
+                          return (
+                            <Link
+                              href={destino.href}
+                              className="font-medium text-blue-600 hover:text-blue-700"
+                            >
+                              {destino.nombre}
+                            </Link>
+                          );
+                        })()}
+                      </td>
 
                     <td className="px-6 py-4 text-right text-sm text-gray-600">
                       {formatNumber(operacion.montoTransaccion)}{" "}
@@ -348,7 +399,10 @@ export function OperacionesTable({ operaciones, title, description }: Operacione
                     </td>
 
                     <td className="px-6 py-4 text-sm">
-                      <OperacionActions operacion={operacion} />
+                      <OperacionActions operacion={operacion}
+                        clientes={clientes}
+                        cuentas={cuentas}
+                        promedios={promedios} />
                     </td>
                   </tr>
                 );

@@ -1,48 +1,56 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { FiPlus } from 'react-icons/fi';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FiPlus, FiUserPlus } from "react-icons/fi";
 
-import { api } from '@/lib/api';
-import { formatMoney } from '@/lib/formatters';
+import { api } from "@/lib/api";
+import { formatMoney } from "@/lib/formatters";
 import type {
   Cliente,
   Cuenta,
   Moneda,
   OrigenOperacion,
-} from '@/types/operaciones';
-import { FormattedNumberInput } from '../ui/FormattedNumberInput';
-import { parseFormattedNumber } from '@/lib/number-format';
+} from "@/types/operaciones";
+import { FormattedNumberInput } from "../ui/FormattedNumberInput";
+import { parseFormattedNumber } from "@/lib/number-format";
+import { PromedioCompraCuenta } from "@/types/cuentas";
+import PromedioCuenta from "../cuentas/PromedioCuenta";
+import { ClienteFormModal } from "../clientes/ClienteFormModal";
 
 type OperacionFormProps = {
   clientes: Cliente[];
   cuentas: Cuenta[];
+  promedios: PromedioCompraCuenta[];
 };
 
 function roundCop(value: number) {
   return Math.round(value);
 }
 
-export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
+export function OperacionForm({
+  clientes,
+  cuentas,
+  promedios,
+}: OperacionFormProps) {
   const router = useRouter();
 
-  const [origenValue, setOrigenValue] = useState('');
-  const [clienteId, setClienteId] = useState('');
-  const [moneda, setMoneda] = useState<Moneda>('BS');
-  const [montoTransaccion, setMontoTransaccion] = useState('');
-  const [tasaCompra, setTasaCompra] = useState('');
-  const [tasaVenta, setTasaVenta] = useState('');
-  const [nota, setNota] = useState('');
+  const [origenValue, setOrigenValue] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [moneda, setMoneda] = useState<Moneda>("BS");
+  const [montoTransaccion, setMontoTransaccion] = useState("");
+  const [tasaCompra, setTasaCompra] = useState("");
+  const [tasaVenta, setTasaVenta] = useState("");
+  const [nota, setNota] = useState("");
   const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
+  const [errorMessage, setErrorMessage] = useState("");
+  const [openClienteModal, setOpenClienteModal] = useState(false);
   const origenes = useMemo<OrigenOperacion[]>(() => {
     const cuentasOperativas = cuentas
-      .filter((cuenta) => cuenta.estado === 'ACTIVO')
-      .filter((cuenta) => cuenta.categoria === 'OPERATIVA')
+      .filter((cuenta) => cuenta.estado === "ACTIVO")
+      .filter((cuenta) => cuenta.categoria === "OPERATIVA")
       .map((cuenta) => ({
-        tipo: 'CUENTA' as const,
+        tipo: "CUENTA" as const,
         id: cuenta.id,
         nombre: cuenta.nombre,
         moneda: cuenta.moneda,
@@ -50,9 +58,9 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
       }));
 
     const clientesActivos = clientes
-      .filter((cliente) => cliente.estado === 'ACTIVO')
+      .filter((cliente) => cliente.estado === "ACTIVO")
       .map((cliente) => ({
-        tipo: 'CLIENTE' as const,
+        tipo: "CLIENTE" as const,
         id: cliente.id,
         nombre: cliente.nombre,
       }));
@@ -62,9 +70,23 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
   const selectedOrigen = useMemo(() => {
     return origenes.find(
-      (origen) => `${origen.tipo}:${origen.id}` === origenValue,
+      (origen) => `${origen.tipo}:${origen.id}` === origenValue
     );
   }, [origenes, origenValue]);
+
+  const promediosPorCuenta = useMemo(() => {
+    return Object.fromEntries(
+      promedios.map((promedio) => [promedio.cuentaId, promedio])
+    );
+  }, [promedios]);
+
+  const promedioCuentaSeleccionada = useMemo(() => {
+    if (selectedOrigen?.tipo !== "CUENTA") {
+      return undefined;
+    }
+
+    return promediosPorCuenta[selectedOrigen.id];
+  }, [selectedOrigen, promediosPorCuenta]);
 
   const selectedCliente = useMemo(() => {
     return clientes.find((cliente) => cliente.id === clienteId);
@@ -88,41 +110,78 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
   const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
   const saldoInsuficiente =
-     selectedOrigen?.tipo === 'CUENTA' && montoNumber > Number(selectedOrigen.saldo || 0);
+    selectedOrigen?.tipo === "CUENTA" &&
+    montoNumber > Number(selectedOrigen.saldo || 0);
 
-  const operationMode = selectedOrigen?.tipo === 'CLIENTE'
-    ? 'DIRECTA'
-    : selectedOrigen?.tipo === 'CUENTA'
-      ? 'VENTA'
+  const operationMode =
+    selectedOrigen?.tipo === "CLIENTE"
+      ? "DIRECTA"
+      : selectedOrigen?.tipo === "CUENTA"
+      ? "VENTA"
       : null;
+
+  function handleOrigenChange(value: string) {
+    setOrigenValue(value);
+    setErrorMessage("");
+
+    const origen = origenes.find((item) => `${item.tipo}:${item.id}` === value);
+
+    if (!origen) {
+      setTasaCompra("");
+      return;
+    }
+
+    if (origen.tipo === "CUENTA") {
+      setMoneda(origen.moneda);
+
+      const promedio = promediosPorCuenta[origen.id];
+
+      if (promedio && promedio.promedioCompra > 0) {
+        setTasaCompra(String(promedio.promedioCompra));
+      } else {
+        setTasaCompra("");
+      }
+
+      return;
+    }
+
+    /**
+     * Si el origen es CLIENTE, es operación directa.
+     * Aquí no aplica promedio por cuenta.
+     */
+    setTasaCompra("");
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setErrorMessage('');
+    setErrorMessage("");
 
     if (!selectedOrigen) {
-      setErrorMessage('Seleccione un origen/proveedor.');
+      setErrorMessage("Seleccione un origen/proveedor.");
       return;
     }
 
     if (!selectedCliente) {
-      setErrorMessage('Seleccione un cliente.');
+      setErrorMessage("Seleccione un cliente.");
       return;
     }
 
     if (parseFormattedNumber(montoTransaccion) <= 0) {
-      setErrorMessage('Ingrese un monto válido.');
+      setErrorMessage("Ingrese un monto válido.");
       return;
     }
 
     if (Number(tasaCompra) <= 0 || Number(tasaVenta) <= 0) {
-      setErrorMessage('Ingrese TC y TV válidas.');
+      setErrorMessage("Ingrese TC y TV válidas.");
       return;
     }
 
-      if (selectedOrigen?.tipo === 'CUENTA' && montoNumber > Number(selectedOrigen.saldo || 0)) {
-      setErrorMessage('Saldo insuficiente en la cuenta operativa.');
+    if (
+      selectedOrigen?.tipo === "CUENTA" &&
+      montoNumber > Number(selectedOrigen.saldo || 0)
+    ) {
+      setErrorMessage("Saldo insuficiente en la cuenta operativa.");
       return;
     }
 
@@ -130,9 +189,9 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
     try {
       const payload =
-        selectedOrigen.tipo === 'CUENTA'
+        selectedOrigen.tipo === "CUENTA"
           ? {
-              tipo: 'VENTA',
+              tipo: "VENTA",
               nombre: `Venta a ${selectedCliente.nombre}`,
               deudorId: selectedCliente.id,
               cuentaOperativaId: selectedOrigen.id,
@@ -144,7 +203,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
               notas: nota || undefined,
             }
           : {
-              tipo: 'OPERACION_DIRECTA',
+              tipo: "OPERACION_DIRECTA",
               nombre: `Operación directa ${selectedOrigen.nombre} a ${selectedCliente.nombre}`,
               acreedorId: selectedOrigen.id,
               deudorId: selectedCliente.id,
@@ -156,19 +215,19 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
               notas: nota || undefined,
             };
 
-      await api.post('/operaciones', payload);
+      await api.post("/operaciones", payload);
 
-      setOrigenValue('');
-      setClienteId('');
-      setMoneda('BS');
-      setMontoTransaccion('');
-      setTasaCompra('');
-      setTasaVenta('');
-      setNota('');
+      setOrigenValue("");
+      setClienteId("");
+      setMoneda("BS");
+      setMontoTransaccion("");
+      setTasaCompra("");
+      setTasaVenta("");
+      setNota("");
 
       router.refresh();
     } catch (error) {
-      setErrorMessage('No fue posible registrar la operación.');
+      setErrorMessage("No fue posible registrar la operación.");
     } finally {
       setSaving(false);
     }
@@ -176,13 +235,20 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
   return (
     <section className="rounded-xl bg-white p-6 shadow-md">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Operaciones</h1>
-        <p className="text-sm text-gray-500">
-          Registra ventas desde cuentas operativas u operaciones directas.
-        </p>
-      </div>
+      <div className="flex justify-between  mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Operaciones</h1>
+          <p className="text-sm text-gray-500">
+            Registra ventas desde cuentas operativas u operaciones directas.
+          </p>
+        </div>
 
+        {selectedOrigen?.tipo === "CUENTA" && (
+          <PromedioCuenta
+            promedioCompra={promediosPorCuenta[selectedOrigen.id]}
+          />
+        )}
+      </div>
       {errorMessage && (
         <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
@@ -190,21 +256,21 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
       )}
 
       <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Origen / proveedor
           </label>
 
           <select
             value={origenValue}
-            onChange={(event) => setOrigenValue(event.target.value)}
+            onChange={(event) => handleOrigenChange(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="">Seleccione origen</option>
 
             <optgroup label="Mis cuentas operativas">
               {origenes
-                .filter((origen) => origen.tipo === 'CUENTA')
+                .filter((origen) => origen.tipo === "CUENTA")
                 .map((origen) => (
                   <option
                     key={`${origen.tipo}:${origen.id}`}
@@ -217,7 +283,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
             <optgroup label="Clientes / proveedores">
               {origenes
-                .filter((origen) => origen.tipo === 'CLIENTE')
+                .filter((origen) => origen.tipo === "CLIENTE")
                 .map((origen) => (
                   <option
                     key={`${origen.tipo}:${origen.id}`}
@@ -229,16 +295,16 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
             </optgroup>
           </select>
 
-          {operationMode && (
+          {/* {operationMode && (
             <p className="mt-2 text-xs font-medium text-gray-500">
-              {operationMode === 'VENTA'
-                ? 'Venta normal: moverá saldo de una cuenta operativa.'
-                : 'Operación directa: no moverá cuentas propias.'}
+              {operationMode === "VENTA"
+                ? "Venta normal: moverá saldo de una cuenta operativa."
+                : "Operación directa: no moverá cuentas propias."}
             </p>
-          )}
+          )} */}
         </div>
 
-        <div className="lg:col-span-4">
+        <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Cliente
           </label>
@@ -251,7 +317,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
             <option value="">Seleccione cliente</option>
 
             {clientes
-              .filter((cliente) => cliente.estado === 'ACTIVO')
+              .filter((cliente) => cliente.estado === "ACTIVO")
               .map((cliente) => (
                 <option key={cliente.id} value={cliente.id}>
                   {cliente.nombre}
@@ -259,6 +325,16 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
               ))}
           </select>
         </div>
+        <div className="flex items-end lg:col-span-1">
+
+        <button
+          type="button"
+          onClick={() => setOpenClienteModal(true)}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg hover:shadow-blue-500/40 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          >
+          <FiUserPlus className="h-4 w-4" />
+        </button>
+          </div>
 
         <div className="lg:col-span-1">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
@@ -267,11 +343,9 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
 
           <select
             value={
-              selectedOrigen?.tipo === 'CUENTA'
-                ? selectedOrigen.moneda
-                : moneda
+              selectedOrigen?.tipo === "CUENTA" ? selectedOrigen.moneda : moneda
             }
-            disabled={selectedOrigen?.tipo === 'CUENTA'}
+            disabled={selectedOrigen?.tipo === "CUENTA"}
             onChange={(event) => setMoneda(event.target.value as Moneda)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
@@ -281,7 +355,7 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
           </select>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-4">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Monto
           </label>
@@ -298,7 +372,6 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
             onChange={(value) => setMontoTransaccion(value)}
             placeholder="0"
           />
-          
         </div>
 
         <div className="lg:col-span-3">
@@ -386,10 +459,15 @@ export function OperacionForm({ clientes, cuentas }: OperacionFormProps) {
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg hover:shadow-blue-500/40 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiPlus className="h-4 w-4" />
-            {saving ? 'Guardando...' : 'Registrar'}
+            {saving ? "Guardando..." : "Registrar"}
           </button>
         </div>
       </form>
+      <ClienteFormModal
+        cliente={null}
+        open={openClienteModal}
+        onClose={() => setOpenClienteModal(false)}
+      />
     </section>
   );
 }

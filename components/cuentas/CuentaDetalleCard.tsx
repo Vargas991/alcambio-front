@@ -1,8 +1,10 @@
 import { formatMoney, formatNumber } from '@/lib/formatters';
 import type { CuentaDetalle } from '@/services/cuentas.server';
+import {PromedioCompraCuenta } from '@/types/cuentas';
 
 type CuentaDetalleCardProps = {
   cuenta: CuentaDetalle;
+  promedioCompra: PromedioCompraCuenta
 };
 
 function formatSaldo(cuenta: CuentaDetalle) {
@@ -13,7 +15,7 @@ function formatSaldo(cuenta: CuentaDetalle) {
   return `${formatNumber(cuenta.saldo)} ${cuenta.moneda}`;
 }
 
-export function CuentaDetalleCard({ cuenta }: CuentaDetalleCardProps) {
+export function CuentaDetalleCard({ cuenta, promedioCompra }: CuentaDetalleCardProps) {
   return (
     <section className="grid gap-4 md:grid-cols-4">
       <div className="rounded-xl bg-white p-5 shadow-md md:col-span-2">
@@ -49,6 +51,26 @@ export function CuentaDetalleCard({ cuenta }: CuentaDetalleCardProps) {
         </p>
       </div>
 
+      {
+        promedioCompra.aplica && 
+      <div className="rounded-xl bg-white p-5 shadow-md">
+        <p className="text-xs font-medium uppercase text-gray-500">
+          Promedio de compra
+        </p>
+
+        <p className="mt-1 text-2xl font-bold text-gray-900">
+          {promedioCompra.tasaMinimaVenta.toLocaleString('es-CO', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 6,
+          })}
+        </p>
+
+        <p className="mt-1 text-xs text-gray-500">
+          Tasa mínima para vender sin perder.
+        </p>
+      </div>
+      }
+
       <div className="rounded-xl bg-white p-5 shadow-md">
         <p className="text-sm text-gray-500">Categoría</p>
 
@@ -61,11 +83,11 @@ export function CuentaDetalleCard({ cuenta }: CuentaDetalleCardProps) {
         <p className="mt-1 font-bold text-gray-900">{cuenta.tipo}</p>
       </div>
 
-      <div className="rounded-xl bg-white p-5 shadow-md">
+      {/* <div className="rounded-xl bg-white p-5 shadow-md">
         <p className="text-sm text-gray-500">Moneda</p>
 
         <p className="mt-1 font-bold text-gray-900">{cuenta.moneda}</p>
-      </div>
+      </div> */}
 
       <div className="rounded-xl bg-white p-5 shadow-md">
         <p className="text-sm text-gray-500">4x1000</p>

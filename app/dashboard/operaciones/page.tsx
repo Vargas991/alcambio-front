@@ -1,6 +1,7 @@
 import { OperacionForm } from '@/components/operaciones/OperacionForm';
 import { OperacionesFilters } from '@/components/operaciones/OperacionesFilters';
 import { OperacionesTable } from '@/components/operaciones/OperacionesTable';
+import { getPromedioCompraCuentaServer, getPromedioCompraCuentasServer } from '@/services/cuentas.server';
 import {
   getClientesServer,
   getCuentasServer,
@@ -28,7 +29,7 @@ export default async function OperacionesPage({
 }: OperacionesPageProps) {
   const filters = await searchParams;
 
-  const [operaciones, clientes, cuentas] = await Promise.all([
+  const [operaciones, clientes, cuentas, promedios] = await Promise.all([
     getOperacionesServer({
       tipo: filters.tipo,
       estado: filters.estado,
@@ -39,15 +40,16 @@ export default async function OperacionesPage({
     }),
     getClientesServer(),
     getCuentasServer(),
+    getPromedioCompraCuentasServer()
   ]);
 
   return (
     <div className="space-y-6">
-      <OperacionForm clientes={clientes} cuentas={cuentas} />
+      <OperacionForm clientes={clientes} cuentas={cuentas} promedios={promedios}/>
 
       <OperacionesFilters />
 
-      <OperacionesTable operaciones={operaciones} title="Tabla de operaciones" description="Ventas normales y operaciones directas registradas." />
+      <OperacionesTable operaciones={operaciones} clientes={clientes} cuentas={cuentas} promedios={promedios} title="Tabla de operaciones" description="Ventas normales y operaciones directas registradas." />
     </div>
   );
 }

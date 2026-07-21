@@ -11,6 +11,7 @@ import type {
   Moneda,
   TipoOperacion,
 } from '@/types/operaciones';
+import { getPromedioCompraCuentasServer } from '@/services/cuentas.server';
 
 type ClienteDetallePageProps = {
   params: Promise<{
@@ -46,7 +47,7 @@ export default async function ClienteDetallePage({
     pdfSearchParams.toString() ? `?${pdfSearchParams.toString()}` : ''
   }`;
 
-  const [perfil, operaciones, ledger, clientes, cuentas] = await Promise.all([
+  const [perfil, operaciones, ledger, clientes, cuentas, promedios] = await Promise.all([
     getClientePerfilServer(id),
 
     getOperacionesServer({
@@ -70,6 +71,7 @@ export default async function ClienteDetallePage({
     }),
     getClientesServer(),
     getCuentasServer(),
+    getPromedioCompraCuentasServer(),
   ]);
 
   const cuentasBaseCop = cuentas.filter(
@@ -94,6 +96,9 @@ export default async function ClienteDetallePage({
       <ClientePerfilTabs
         operaciones={operaciones}
         movimientos={ledger.movimientos}
+        promedios={promedios}
+        cuentas={cuentas}
+        clientes={clientes}
       />
     </div>
   );

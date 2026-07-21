@@ -7,16 +7,23 @@ import { ClienteLedgerTable } from '@/components/clientes/ClienteLedgerTable';
 import { OperacionesFilters } from '@/components/operaciones/OperacionesFilters';
 import { OperacionesTable } from '@/components/operaciones/OperacionesTable';
 import type { ClienteLedgerEntry } from '@/types/clientes';
-import type { Operacion } from '@/types/operaciones';
+import type { Cliente, Cuenta, Operacion } from '@/types/operaciones';
+import { PromedioCompraCuenta } from '@/types/cuentas';
 
 type ClientePerfilTabsProps = {
   operaciones: Operacion[];
   movimientos: ClienteLedgerEntry[];
+  promedios?: PromedioCompraCuenta[];
+  cuentas: Cuenta[];
+  clientes: Cliente[];
 };
 
 export function ClientePerfilTabs({
   operaciones,
   movimientos,
+  promedios,
+  cuentas,
+  clientes
 }: ClientePerfilTabsProps) {
   const [activeTab, setActiveTab] = useState<'operaciones' | 'estadoCuenta'>(
     'operaciones',
@@ -59,6 +66,9 @@ export function ClientePerfilTabs({
           <OperacionesFilters />
 
           <OperacionesTable
+            promedios ={promedios}
+            cuentas={cuentas}
+            clientes={clientes}
             operaciones={operaciones}
             title="Operaciones del cliente"
             description="Ventas, compras y operaciones directas asociadas a este cliente."

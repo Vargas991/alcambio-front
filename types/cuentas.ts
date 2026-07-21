@@ -27,6 +27,20 @@ export type Cuenta = {
   actualizadoEn: string;
 };
 
+export type PromedioCompraCuenta = {
+  cuentaId: string;
+  cuenta: string;
+  moneda: string;
+  saldoActual: number;
+  saldoCalculado: number;
+  costoInventarioCop: number;
+  promedioCompra: number;
+  tasaMinimaVenta: number;
+  totalOperacionesAnalizadas: number;
+  aplica: boolean;
+  mensaje?: string;
+};
+
 export type CreateCuentaPayload = {
   nombre: string;
   moneda: MonedaCuenta;

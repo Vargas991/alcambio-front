@@ -3,7 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 
 import type { ApiResponse } from '@/types/operaciones';
-import type { Cuenta } from '@/types/cuentas';
+import type { Cuenta, PromedioCompraCuenta } from '@/types/cuentas';
 
 const API_URL = process.env.NEST_API_URL ?? 'http://localhost:3000/api';
 
@@ -71,6 +71,26 @@ export async function getCuentaServer(id: string) {
 export async function getMovimientosCuentaServer(id: string) {
   const response = await serverApiGet<ApiResponse<MovimientoCuenta[]>>(
     `/cuentas/${id}/movimientos`,
+  );
+
+  return response.data;
+}
+
+;
+
+export async function getPromedioCompraCuentaServer(
+  cuentaId: string,
+): Promise<PromedioCompraCuenta> {
+  const response = await serverApiGet<ApiResponse<PromedioCompraCuenta>>(
+    `/cuentas/${cuentaId}/promedio-compra`,
+  );
+
+  return response.data;
+}
+export async function getPromedioCompraCuentasServer(
+): Promise<PromedioCompraCuenta[]> {
+  const response = await serverApiGet<ApiResponse<PromedioCompraCuenta[]>>(
+    `/cuentas/promedios-compra`,
   );
 
   return response.data;

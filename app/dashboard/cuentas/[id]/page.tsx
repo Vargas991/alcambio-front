@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { CuentaDetalleCard } from '@/components/cuentas/CuentaDetalleCard';
 import { CuentaMovimientosTable } from '@/components/cuentas/CuentaMovimientosTable';
-import { getCuentaServer } from '@/services/cuentas.server';
+import { getCuentaServer, getPromedioCompraCuentaServer } from '@/services/cuentas.server';
 import { getClientesServer } from '@/services/clientes.server';
 import { CuentaDetalleActions } from '@/components/cuentas/CuentaDetalleActions';
 
@@ -17,10 +17,13 @@ export default async function CuentaDetallePage({
 }: CuentaDetallePageProps) {
   const { id } = await params;
 
-  const [cuenta, clientes] = await Promise.all([
+  const [cuenta, clientes, promedioCompra] = await Promise.all([
     getCuentaServer(id),
     getClientesServer(),
+    getPromedioCompraCuentaServer(id),
   ]);
+  console.log("promedio: ", promedioCompra);
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -42,8 +45,9 @@ export default async function CuentaDetallePage({
         </div>
       </div>
 
+      
       <CuentaDetalleActions cuenta={cuenta} clientes={clientes} />
-      <CuentaDetalleCard cuenta={cuenta} />
+      <CuentaDetalleCard cuenta={cuenta} promedioCompra={promedioCompra} />
 
       <CuentaMovimientosTable movimientos={cuenta.movimientos} />
     </div>
