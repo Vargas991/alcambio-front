@@ -221,16 +221,16 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1300px] table-auto">
+        <table className="w-max-con min-w-[720px] table-auto">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
                 Fecha
               </th>
 
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
+              {/* <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
                 Código
-              </th>
+              </th> */}
 
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
                 Tipo
@@ -267,9 +267,9 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
                 Utilidad
               </th>
 
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
+              {/* <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
                 Estado
-              </th>
+              </th> */}
 
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
                 Nota
@@ -285,7 +285,7 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
             {operaciones.length === 0 ? (
               <tr>
                 <td
-                  colSpan={13}
+                  colSpan={12}
                   className="px-6 py-8 text-center text-sm text-gray-500"
                 >
                   <h3 className="text-lg font-medium text-gray-700">
@@ -305,9 +305,9 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
                       {formatDate(operacion.fechaOperacion)}
                     </td>
 
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                    {/* <td className="px-6 py-4 text-sm font-semibold text-gray-900">
                       {operacion.codigo}
-                    </td>
+                    </td> */}
 
                     <td className="px-6 py-4 text-sm">
                       <span
@@ -374,7 +374,7 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
                         : "-"}
                     </td>
 
-                    <td className="px-6 py-4 text-center text-sm">
+                    {/* <td className="px-6 py-4 text-center text-sm">
                     <span
                       title={operacion.estado}
                       className={[
@@ -390,7 +390,7 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
                         <FiCheckCircle className="h-4 w-4" />
                       )}
                     </span>
-                  </td>
+                  </td> */}
 
                     <td className="max-w-[260px] px-6 py-4 text-sm text-gray-600">
                       <span className="line-clamp-2">

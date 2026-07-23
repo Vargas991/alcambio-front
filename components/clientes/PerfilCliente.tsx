@@ -3,6 +3,7 @@ import { ClientePerfil, ClienteResumenItem } from "@/types/clientes";
 import { ClienteEntradaButton } from "./ClienteEntradaButton";
 import { Cuenta } from "@/types/cuentas";
 import { ClienteSalidaButton } from "../salidas/ClienteSalidaButton";
+import { ClienteSaldoAction } from './ClienteSaldoAction';
 
 
 // type CuentaOption = {
@@ -88,6 +89,11 @@ function PerfilCliente({
             >
               {getBalanceLabel(balance.estado)}
             </span>
+            <ClienteSaldoAction
+              clienteId={cliente.id}
+              saldoActualCop={formatMoney(Math.abs(balance.saldoCop))}
+              clienteNombre={cliente.nombre}
+            />
           </div>
         </div>
         {/* 

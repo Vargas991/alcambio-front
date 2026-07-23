@@ -68,6 +68,13 @@ function getPageInfo(pathname: string) {
     };
   }
 
+  if (pathname.startsWith('/dashboard/cuentas/')) {
+    return {
+      title: 'Detalle de cuenta',
+      section: 'Cuentas',
+    };
+  }
+
   return {
     title: 'Panel',
     section: 'Dashboard',
@@ -76,17 +83,48 @@ function getPageInfo(pathname: string) {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
+
+  // Mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Desktop
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const pageInfo = useMemo(() => {
     return getPageInfo(pathname);
   }, [pathname]);
 
+  function handleOpenSidebar() {
+    // Desktop: si está colapsado, expandir.
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+      return;
+    }
+
+    // Mobile: abrir normalmente.
+    setSidebarOpen(true);
+  }
+
+  function handleCloseSidebar() {
+    setSidebarOpen(false);
+  }
+
+  function handleCollapseSidebar() {
+    setSidebarCollapsed(true);
+  }
+
+  function handleExpandSidebar() {
+    setSidebarCollapsed(false);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/50">
       <Sidebar
         open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onClose={handleCloseSidebar}
+        onCollapse={handleCollapseSidebar}
+        onExpand={handleExpandSidebar}
       />
 
       {sidebarOpen && (
@@ -94,15 +132,20 @@ export function AppShell({ children }: AppShellProps) {
           type="button"
           aria-label="Cerrar menú"
           className="fixed inset-0 z-40 bg-black/40 xl:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={handleCloseSidebar}
         />
       )}
 
-      <div className="p-4 xl:ml-80">
+      <div
+        className={[
+          'p-4 transition-[margin] duration-300',
+          sidebarCollapsed ? 'xl:ml-20' : 'xl:ml-80',
+        ].join(' ')}
+      >
         <Topbar
           title={pageInfo.title}
           section={pageInfo.section}
-          onOpenSidebar={() => setSidebarOpen(true)}
+          onOpenSidebar={handleOpenSidebar}
         />
 
         <main className="mt-12">{children}</main>

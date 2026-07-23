@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 
-import { EntradaFormModal } from './EntradaFormModal';
-import { EntradasTable } from './EntradasTable';
+import type { Entrada } from '@/types/entradas';
 import type { ClienteResumenItem } from '@/types/clientes';
 import type { Cuenta } from '@/types/cuentas';
-import type { Entrada } from '@/types/entradas';
+
+import { EntradasTable } from './EntradasTable';
+import { EntradaFormModal } from './EntradaFormModal';
 
 type EntradasManagerProps = {
   entradas: Entrada[];
@@ -21,15 +22,38 @@ export function EntradasManager({
 }: EntradasManagerProps) {
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [entradaEditando, setEntradaEditando] =
+    useState<Entrada | null>(null);
+
+  function handleCreate() {
+    setEntradaEditando(null);
+    setModalOpen(true);
+  }
+
+  function handleEdit(entrada: Entrada) {
+    setEntradaEditando(entrada);
+    setModalOpen(true);
+  }
+
+  function handleClose() {
+    setModalOpen(false);
+    setEntradaEditando(null);
+  }
+
   return (
     <>
-      <EntradasTable entradas={entradas} onCreate={() => setModalOpen(true)} />
+      <EntradasTable
+        entradas={entradas}
+        onCreate={handleCreate}
+        onEdit={handleEdit}
+      />
 
       <EntradaFormModal
         open={modalOpen}
+        entrada={entradaEditando}
         clientes={clientes}
         cuentas={cuentas}
-        onClose={() => setModalOpen(false)}
+        onClose={handleClose}
       />
     </>
   );

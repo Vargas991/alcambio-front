@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiXCircle, FiPenTool } from "react-icons/fi";
+import { FiXCircle, FiPenTool, FiEdit3, FiTrash, FiTrash2 } from "react-icons/fi";
 import axios from "axios";
 
 import { api } from "@/lib/api";
@@ -74,7 +74,7 @@ export function OperacionActions({
         onClick={() => setOpenEdit(true)}
         className="flex flex-wrap justify-center items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 text-blue-600 hover:text-blue-700"
       >
-        <FiPenTool className="h-4 w-4" />
+        <FiEdit3 className="h-4 w-4" />
       </button>
       <button
         type="button"
@@ -84,7 +84,7 @@ export function OperacionActions({
         disabled={loading}
         className="flex flex-wrap justify-center items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        <FiXCircle className="h-4 w-4" />
+        <FiTrash2 className="h-4 w-4" />
         {loading ? "Cancelando..." : ""}
       </button>
 

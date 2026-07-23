@@ -14,10 +14,16 @@ export type Entrada = {
   acreedorId: string | null;
   cuentaId: string | null;
 
+  aplica4x1000?: boolean;
+  impuesto4x1000Cop?: number;
+  montoAplicadoDeudaCop?: number | null;
+
   montoCop: string;
   proveedorCobra4x1000?: boolean;
   impuestoProveedor4x1000Cop?: string;
   montoNetoAcreedorCop?: string;
+
+
 
   descripcion: string | null;
   referencia: string | null;
