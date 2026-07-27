@@ -1,9 +1,10 @@
 import { formatMoney } from "@/lib/formatters";
 import { ClientePerfil, ClienteResumenItem } from "@/types/clientes";
 import { ClienteEntradaButton } from "./ClienteEntradaButton";
-import { Cuenta } from "@/types/cuentas";
+import { Cuenta, PromedioCompraCuenta } from "@/types/cuentas";
 import { ClienteSalidaButton } from "../salidas/ClienteSalidaButton";
 import { ClienteSaldoAction } from './ClienteSaldoAction';
+import { ClienteOperacionButton } from './ClienteOperacionButton';
 
 
 // type CuentaOption = {
@@ -19,6 +20,7 @@ interface PerfilClienteProps {
   pdfUrl: string;
   clientes: ClienteResumenItem[];
   cuentas: Cuenta[];
+  promedios: PromedioCompraCuenta[];
 }
 
 function getBalanceLabel(estado: "ME_DEBE" | "LE_DEBO" | "SALDADO") {
@@ -47,7 +49,21 @@ function PerfilCliente({
   pdfUrl,
   clientes,
   cuentas,
+  promedios
 }: PerfilClienteProps) {
+  const cuentasBaseCop = cuentas.filter(
+  (cuenta) =>
+    cuenta.estado === 'ACTIVO' &&
+    cuenta.categoria === 'BASE_COP' &&
+    cuenta.moneda === 'COP',
+);
+
+const cuentasOperativas = cuentas.filter(
+  (cuenta) =>
+    cuenta.estado === 'ACTIVO' &&
+    cuenta.categoria === 'OPERATIVA',
+);
+
   return (
     <>
       <section className="rounded-xl bg-white p-6 shadow-md">
@@ -197,15 +213,21 @@ function PerfilCliente({
 
       <section className="rounded-xl bg-white p-6 shadow-md">
         <div className="flex flex-wrap gap-2">
+          <ClienteOperacionButton
+            clientes={clientes}
+            cuentas={cuentasOperativas}
+            promedios={promedios}
+          />
+          
           <ClienteEntradaButton
             clienteId={cliente.id}
             clientes={clientes}
-            cuentas={cuentas}
+            cuentas={cuentasBaseCop}
           />
           <ClienteSalidaButton
             clienteId={cliente.id}
             clientes={clientes}
-            cuentas={cuentas}
+            cuentas={cuentasBaseCop}
           />
           
           <a

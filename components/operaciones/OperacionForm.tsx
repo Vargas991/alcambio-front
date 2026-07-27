@@ -1,28 +1,34 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FiPlus, FiUserPlus } from "react-icons/fi";
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FiPlus, FiUserPlus } from 'react-icons/fi';
 
-import { api } from "@/lib/api";
-import { formatMoney } from "@/lib/formatters";
+import { api } from '@/lib/api';
+import { formatMoney, formatNumber } from '@/lib/formatters';
+import { parseFormattedNumber } from '@/lib/number-format';
+
 import type {
   Cliente,
   Cuenta,
   Moneda,
   OrigenOperacion,
-} from "@/types/operaciones";
-import { FormattedNumberInput } from "../ui/FormattedNumberInput";
-import { parseFormattedNumber } from "@/lib/number-format";
-import { PromedioCompraCuenta } from "@/types/cuentas";
-import PromedioCuenta from "../cuentas/PromedioCuenta";
-import { ClienteFormModal } from "../clientes/ClienteFormModal";
+} from '@/types/operaciones';
+
+import type { PromedioCompraCuenta } from '@/types/cuentas';
+
+import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import PromedioCuenta from '../cuentas/PromedioCuenta';
+import { ClienteFormModal } from '../clientes/ClienteFormModal';
 
 type OperacionFormProps = {
   clientes: Cliente[];
   cuentas: Cuenta[];
   promedios: PromedioCompraCuenta[];
 };
+
+type TipoEntidadOperacion =
+  | OrigenOperacion;
 
 function roundCop(value: number) {
   return Math.round(value);
@@ -35,227 +41,794 @@ export function OperacionForm({
 }: OperacionFormProps) {
   const router = useRouter();
 
-  const [origenValue, setOrigenValue] = useState("");
-  const [clienteId, setClienteId] = useState("");
-  const [moneda, setMoneda] = useState<Moneda>("BS");
-  const [montoTransaccion, setMontoTransaccion] = useState("");
-  const [tasaCompra, setTasaCompra] = useState("");
-  const [tasaVenta, setTasaVenta] = useState("");
-  const [nota, setNota] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [openClienteModal, setOpenClienteModal] = useState(false);
-  const origenes = useMemo<OrigenOperacion[]>(() => {
-    const cuentasOperativas = cuentas
-      .filter((cuenta) => cuenta.estado === "ACTIVO")
-      .filter((cuenta) => cuenta.categoria === "OPERATIVA")
-      .map((cuenta) => ({
-        tipo: "CUENTA" as const,
-        id: cuenta.id,
-        nombre: cuenta.nombre,
-        moneda: cuenta.moneda,
-        saldo: cuenta.saldo,
-      }));
+  /**
+   * Ahora tenemos:
+   *
+   * ORIGEN
+   * - cuenta
+   * - cliente/proveedor
+   *
+   * DESTINO
+   * - cliente
+   * - cuenta operativa
+   */
+  const [origenValue, setOrigenValue] =
+    useState('');
 
-    const clientesActivos = clientes
-      .filter((cliente) => cliente.estado === "ACTIVO")
-      .map((cliente) => ({
-        tipo: "CLIENTE" as const,
-        id: cliente.id,
-        nombre: cliente.nombre,
-      }));
+  const [destinoValue, setDestinoValue] =
+    useState('');
 
-    return [...cuentasOperativas, ...clientesActivos];
-  }, [clientes, cuentas]);
+  const [moneda, setMoneda] =
+    useState<Moneda>('BS');
 
-  const selectedOrigen = useMemo(() => {
-    return origenes.find(
-      (origen) => `${origen.tipo}:${origen.id}` === origenValue
+  const [
+    montoTransaccion,
+    setMontoTransaccion,
+  ] = useState('');
+
+  const [tasaCompra, setTasaCompra] =
+    useState('');
+
+  const [tasaVenta, setTasaVenta] =
+    useState('');
+
+  const [nota, setNota] =
+    useState('');
+
+  const [saving, setSaving] =
+    useState(false);
+
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState('');
+
+  const [
+    openClienteModal,
+    setOpenClienteModal,
+  ] = useState(false);
+
+  /**
+   * ==========================================
+   * ENTIDADES DISPONIBLES
+   * ==========================================
+   */
+
+  const entidades =
+    useMemo<TipoEntidadOperacion[]>(
+      () => {
+        const cuentasOperativas =
+          cuentas
+            .filter(
+              (cuenta) =>
+                cuenta.estado ===
+                'ACTIVO',
+            )
+            .filter(
+              (cuenta) =>
+                cuenta.categoria ===
+                'OPERATIVA',
+            )
+            .map((cuenta) => ({
+              tipo: 'CUENTA' as const,
+              id: cuenta.id,
+              nombre: cuenta.nombre,
+              moneda: cuenta.moneda,
+              saldo: cuenta.saldo,
+            }));
+
+        const clientesActivos =
+          clientes
+            .filter(
+              (cliente) =>
+                cliente.estado ===
+                'ACTIVO',
+            )
+            .map((cliente) => ({
+              tipo: 'CLIENTE' as const,
+              id: cliente.id,
+              nombre: cliente.nombre,
+            }));
+
+        return [
+          ...cuentasOperativas,
+          ...clientesActivos,
+        ];
+      },
+      [clientes, cuentas],
     );
-  }, [origenes, origenValue]);
 
-  const promediosPorCuenta = useMemo(() => {
-    return Object.fromEntries(
-      promedios.map((promedio) => [promedio.cuentaId, promedio])
-    );
-  }, [promedios]);
+  /**
+   * ==========================================
+   * ORIGEN SELECCIONADO
+   * ==========================================
+   */
 
-  const promedioCuentaSeleccionada = useMemo(() => {
-    if (selectedOrigen?.tipo !== "CUENTA") {
-      return undefined;
+  const selectedOrigen = useMemo(
+    () =>
+      entidades.find(
+        (item) =>
+          `${item.tipo}:${item.id}` ===
+          origenValue,
+      ),
+    [entidades, origenValue],
+  );
+
+  /**
+   * ==========================================
+   * DESTINO SELECCIONADO
+   * ==========================================
+   */
+
+  const selectedDestino = useMemo(
+    () =>
+      entidades.find(
+        (item) =>
+          `${item.tipo}:${item.id}` ===
+          destinoValue,
+      ),
+    [entidades, destinoValue],
+  );
+
+  /**
+   * ==========================================
+   * PROMEDIOS POR CUENTA
+   * ==========================================
+   */
+
+  const promediosPorCuenta =
+    useMemo(() => {
+      return Object.fromEntries(
+        promedios.map(
+          (promedio) => [
+            promedio.cuentaId,
+            promedio,
+          ],
+        ),
+      );
+    }, [promedios]);
+
+  /**
+   * Para venta interesa el promedio
+   * de la cuenta ORIGEN.
+   */
+  const promedioCuentaSeleccionada =
+    useMemo(() => {
+      if (
+        selectedOrigen?.tipo !==
+        'CUENTA'
+      ) {
+        return undefined;
+      }
+
+      return promediosPorCuenta[
+        selectedOrigen.id
+      ];
+    }, [
+      selectedOrigen,
+      promediosPorCuenta,
+    ]);
+
+  /**
+   * ==========================================
+   * TIPO DE OPERACIÓN
+   * ==========================================
+   *
+   * CUENTA  -> CLIENTE = VENTA
+   * CLIENTE -> CUENTA  = COMPRA
+   * CLIENTE -> CLIENTE = DIRECTA
+   */
+
+  const operationMode = useMemo(() => {
+    if (
+      selectedOrigen?.tipo ===
+        'CUENTA' &&
+      selectedDestino?.tipo ===
+        'CLIENTE'
+    ) {
+      return 'VENTA' as const;
     }
 
-    return promediosPorCuenta[selectedOrigen.id];
-  }, [selectedOrigen, promediosPorCuenta]);
+    if (
+      selectedOrigen?.tipo ===
+        'CLIENTE' &&
+      selectedDestino?.tipo ===
+        'CUENTA'
+    ) {
+      return 'COMPRA' as const;
+    }
 
-  const selectedCliente = useMemo(() => {
-    return clientes.find((cliente) => cliente.id === clienteId);
-  }, [clientes, clienteId]);
+    if (
+      selectedOrigen?.tipo ===
+        'CLIENTE' &&
+      selectedDestino?.tipo ===
+        'CLIENTE'
+    ) {
+      return 'DIRECTA' as const;
+    }
+
+    return null;
+  }, [
+    selectedOrigen,
+    selectedDestino,
+  ]);
+
+  /**
+   * ==========================================
+   * PREVIEW
+   * ==========================================
+   */
+
+  const montoNumber =
+    parseFormattedNumber(
+      montoTransaccion,
+    ) || 0;
+
+  /**
+   * En compra la tasa de venta no tiene
+   * significado comercial.
+   *
+   * Como backend la exige, internamente
+   * usamos la misma tasa de compra.
+   */
+  const tasaVentaEfectiva =
+    operationMode === 'COMPRA'
+      ? Number(tasaCompra || 0)
+      : Number(tasaVenta || 0);
 
   const preview = useMemo(() => {
-    const monto = parseFormattedNumber(montoTransaccion) || 0;
-    const tc = Number(tasaCompra || 0);
-    const tv = Number(tasaVenta || 0);
+    const monto =
+      parseFormattedNumber(
+        montoTransaccion,
+      ) || 0;
 
-    const totalCompraCop = roundCop(monto * tc);
-    const totalVentaCop = roundCop(monto * tv);
-    const utilidadCop = totalVentaCop - totalCompraCop;
+    const tc =
+      Number(tasaCompra || 0);
+
+    const tv =
+      operationMode === 'COMPRA'
+        ? tc
+        : Number(tasaVenta || 0);
+
+    const totalCompraCop =
+      roundCop(monto * tc);
+
+    const totalVentaCop =
+      roundCop(monto * tv);
+
+    const utilidadCop =
+      totalVentaCop -
+      totalCompraCop;
 
     return {
       totalCompraCop,
       totalVentaCop,
       utilidadCop,
     };
-  }, [montoTransaccion, tasaCompra, tasaVenta]);
+  }, [
+    montoTransaccion,
+    tasaCompra,
+    tasaVenta,
+    operationMode,
+  ]);
 
-  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
+  /**
+   * El saldo solamente se valida cuando
+   * vendemos desde una cuenta propia.
+   */
   const saldoInsuficiente =
-    selectedOrigen?.tipo === "CUENTA" &&
-    montoNumber > Number(selectedOrigen.saldo || 0);
+    operationMode === 'VENTA' &&
+    selectedOrigen?.tipo ===
+      'CUENTA' &&
+    montoNumber >
+      Number(
+        selectedOrigen.saldo || 0,
+      );
 
-  const operationMode =
-    selectedOrigen?.tipo === "CLIENTE"
-      ? "DIRECTA"
-      : selectedOrigen?.tipo === "CUENTA"
-      ? "VENTA"
-      : null;
+  /**
+   * ==========================================
+   * CAMBIO DE ORIGEN
+   * ==========================================
+   */
 
-  function handleOrigenChange(value: string) {
+  function handleOrigenChange(
+    value: string,
+  ) {
     setOrigenValue(value);
-    setErrorMessage("");
+    setDestinoValue('');
+    setErrorMessage('');
 
-    const origen = origenes.find((item) => `${item.tipo}:${item.id}` === value);
+    const origen =
+      entidades.find(
+        (item) =>
+          `${item.tipo}:${item.id}` ===
+          value,
+      );
 
     if (!origen) {
-      setTasaCompra("");
+      setTasaCompra('');
+      setTasaVenta('');
       return;
     }
 
-    if (origen.tipo === "CUENTA") {
+    /**
+     * CUENTA COMO ORIGEN
+     *
+     * Será una venta.
+     */
+    if (
+      origen.tipo === 'CUENTA'
+    ) {
       setMoneda(origen.moneda);
 
-      const promedio = promediosPorCuenta[origen.id];
+      const promedio =
+        promediosPorCuenta[
+          origen.id
+        ];
 
-      if (promedio && promedio.promedioCompra > 0) {
-        setTasaCompra(String(promedio.promedioCompra));
+      if (
+        promedio &&
+        promedio.promedioCompra > 0
+      ) {
+        setTasaCompra(
+          String(
+            promedio.promedioCompra,
+          ),
+        );
       } else {
-        setTasaCompra("");
+        setTasaCompra('');
       }
+
+      setTasaVenta('');
 
       return;
     }
 
     /**
-     * Si el origen es CLIENTE, es operación directa.
-     * Aquí no aplica promedio por cuenta.
+     * CLIENTE COMO ORIGEN
+     *
+     * Puede terminar siendo:
+     *
+     * CLIENTE -> CUENTA  = COMPRA
+     * CLIENTE -> CLIENTE = DIRECTA
      */
-    setTasaCompra("");
+    setTasaCompra('');
+    setTasaVenta('');
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  /**
+   * ==========================================
+   * CAMBIO DE DESTINO
+   * ==========================================
+   */
+
+  function handleDestinoChange(
+    value: string,
+  ) {
+    setDestinoValue(value);
+    setErrorMessage('');
+
+    const destino =
+      entidades.find(
+        (item) =>
+          `${item.tipo}:${item.id}` ===
+          value,
+      );
+
+    if (!destino) {
+      return;
+    }
+
+    /**
+     * Cuando el destino es una cuenta,
+     * estamos haciendo una COMPRA.
+     *
+     * La moneda queda determinada por
+     * la cuenta operativa que recibe.
+     */
+    if (
+      destino.tipo === 'CUENTA'
+    ) {
+      setMoneda(
+        destino.moneda,
+      );
+    }
+  }
+
+  /**
+   * ==========================================
+   * SUBMIT
+   * ==========================================
+   */
+
+  async function handleSubmit(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
-    setErrorMessage("");
+    setErrorMessage('');
 
     if (!selectedOrigen) {
-      setErrorMessage("Seleccione un origen/proveedor.");
+      setErrorMessage(
+        'Seleccione un origen/proveedor.',
+      );
+
       return;
     }
 
-    if (!selectedCliente) {
-      setErrorMessage("Seleccione un cliente.");
+    if (!selectedDestino) {
+      setErrorMessage(
+        'Seleccione un destino.',
+      );
+
       return;
     }
 
-    if (parseFormattedNumber(montoTransaccion) <= 0) {
-      setErrorMessage("Ingrese un monto válido.");
+    /**
+     * CUENTA -> CUENTA no corresponde
+     * al módulo operaciones.
+     */
+    if (
+      selectedOrigen.tipo ===
+        'CUENTA' &&
+      selectedDestino.tipo ===
+        'CUENTA'
+    ) {
+      setErrorMessage(
+        'Para movimientos entre cuentas propias utiliza el módulo de traslados.',
+      );
+
       return;
     }
 
-    if (Number(tasaCompra) <= 0 || Number(tasaVenta) <= 0) {
-      setErrorMessage("Ingrese TC y TV válidas.");
+    /**
+     * No tiene sentido cliente -> mismo cliente.
+     */
+    if (
+      selectedOrigen.tipo ===
+        'CLIENTE' &&
+      selectedDestino.tipo ===
+        'CLIENTE' &&
+      selectedOrigen.id ===
+        selectedDestino.id
+    ) {
+      setErrorMessage(
+        'El origen y el cliente destino no pueden ser el mismo.',
+      );
+
       return;
     }
 
     if (
-      selectedOrigen?.tipo === "CUENTA" &&
-      montoNumber > Number(selectedOrigen.saldo || 0)
+      parseFormattedNumber(
+        montoTransaccion,
+      ) <= 0
     ) {
-      setErrorMessage("Saldo insuficiente en la cuenta operativa.");
+      setErrorMessage(
+        'Ingrese un monto válido.',
+      );
+
+      return;
+    }
+
+    /**
+     * TC siempre requerida.
+     */
+    if (
+      Number(tasaCompra) <= 0
+    ) {
+      setErrorMessage(
+        'Ingrese una tasa de compra válida.',
+      );
+
+      return;
+    }
+
+    /**
+     * TV solamente debe solicitarse
+     * visualmente en VENTA y DIRECTA.
+     *
+     * COMPRA usa TC como TV interna.
+     */
+    if (
+      operationMode !==
+        'COMPRA' &&
+      Number(tasaVenta) <= 0
+    ) {
+      setErrorMessage(
+        'Ingrese una tasa de venta válida.',
+      );
+
+      return;
+    }
+
+    if (
+      saldoInsuficiente
+    ) {
+      setErrorMessage(
+        'Saldo insuficiente en la cuenta operativa.',
+      );
+
+      return;
+    }
+
+    if (!operationMode) {
+      setErrorMessage(
+        'La combinación seleccionada no corresponde a una operación válida.',
+      );
+
       return;
     }
 
     setSaving(true);
 
     try {
-      const payload =
-        selectedOrigen.tipo === "CUENTA"
-          ? {
-              tipo: "VENTA",
-              nombre: `Venta a ${selectedCliente.nombre}`,
-              deudorId: selectedCliente.id,
-              cuentaOperativaId: selectedOrigen.id,
-              monedaTransaccion: selectedOrigen.moneda,
-              montoTransaccion: parseFormattedNumber(montoTransaccion),
-              tasaCompra: Number(tasaCompra),
-              tasaVenta: Number(tasaVenta),
-              destinatario: selectedCliente.nombre,
-              notas: nota || undefined,
-            }
-          : {
-              tipo: "OPERACION_DIRECTA",
-              nombre: `Operación directa ${selectedOrigen.nombre} a ${selectedCliente.nombre}`,
-              acreedorId: selectedOrigen.id,
-              deudorId: selectedCliente.id,
-              monedaTransaccion: moneda,
-              montoTransaccion: parseFormattedNumber(montoTransaccion),
-              tasaCompra: Number(tasaCompra),
-              tasaVenta: Number(tasaVenta),
-              destinatario: selectedCliente.nombre,
-              notas: nota || undefined,
-            };
+      let payload;
 
-      await api.post("/operaciones", payload);
+      /**
+       * =====================================
+       * VENTA
+       *
+       * CUENTA -> CLIENTE
+       * =====================================
+       */
+      if (
+        operationMode === 'VENTA' &&
+        selectedOrigen.tipo ===
+          'CUENTA' &&
+        selectedDestino.tipo ===
+          'CLIENTE'
+      ) {
+        payload = {
+          tipo: 'VENTA',
 
-      setOrigenValue("");
-      setClienteId("");
-      setMoneda("BS");
-      setMontoTransaccion("");
-      setTasaCompra("");
-      setTasaVenta("");
-      setNota("");
+          nombre:
+            `Venta a ${selectedDestino.nombre}`,
+
+          deudorId:
+            selectedDestino.id,
+
+          cuentaOperativaId:
+            selectedOrigen.id,
+
+          monedaTransaccion:
+            selectedOrigen.moneda,
+
+          montoTransaccion:
+            parseFormattedNumber(
+              montoTransaccion,
+            ),
+
+          tasaCompra:
+            Number(tasaCompra),
+
+          tasaVenta:
+            Number(tasaVenta),
+
+          destinatario:
+            selectedDestino.nombre,
+
+          notas:
+            nota || undefined,
+        };
+      }
+
+      /**
+       * =====================================
+       * COMPRA
+       *
+       * CLIENTE/PROVEEDOR -> CUENTA
+       * =====================================
+       */
+      if (
+        operationMode === 'COMPRA' &&
+        selectedOrigen.tipo ===
+          'CLIENTE' &&
+        selectedDestino.tipo ===
+          'CUENTA'
+      ) {
+        payload = {
+          tipo: 'COMPRA',
+
+          nombre:
+            `Compra a ${selectedOrigen.nombre}`,
+
+          /**
+           * El proveedor/origen es
+           * quien nosotros quedamos debiendo.
+           */
+          acreedorId:
+            selectedOrigen.id,
+
+          cuentaOperativaId:
+            selectedDestino.id,
+
+          monedaTransaccion:
+            selectedDestino.moneda,
+
+          montoTransaccion:
+            parseFormattedNumber(
+              montoTransaccion,
+            ),
+
+          tasaCompra:
+            Number(tasaCompra),
+
+          /**
+           * El backend la exige.
+           *
+           * Para compra no tiene significado,
+           * así que usamos TC.
+           */
+          tasaVenta:
+            tasaVentaEfectiva,
+
+          destinatario:
+            selectedDestino.nombre,
+
+          notas:
+            nota || undefined,
+        };
+      }
+
+      /**
+       * =====================================
+       * OPERACIÓN DIRECTA
+       *
+       * CLIENTE -> CLIENTE
+       * =====================================
+       */
+      if (
+        operationMode ===
+          'DIRECTA' &&
+        selectedOrigen.tipo ===
+          'CLIENTE' &&
+        selectedDestino.tipo ===
+          'CLIENTE'
+      ) {
+        payload = {
+          tipo:
+            'OPERACION_DIRECTA',
+
+          nombre:
+            `Operación directa ${selectedOrigen.nombre} a ${selectedDestino.nombre}`,
+
+          acreedorId:
+            selectedOrigen.id,
+
+          deudorId:
+            selectedDestino.id,
+
+          monedaTransaccion:
+            moneda,
+
+          montoTransaccion:
+            parseFormattedNumber(
+              montoTransaccion,
+            ),
+
+          tasaCompra:
+            Number(tasaCompra),
+
+          tasaVenta:
+            Number(tasaVenta),
+
+          destinatario:
+            selectedDestino.nombre,
+
+          notas:
+            nota || undefined,
+        };
+      }
+
+      if (!payload) {
+        throw new Error(
+          'No fue posible determinar la operación.',
+        );
+      }
+
+      await api.post(
+        '/operaciones',
+        payload,
+      );
+
+      /**
+       * LIMPIAR
+       */
+      setOrigenValue('');
+      setDestinoValue('');
+      setMoneda('BS');
+      setMontoTransaccion('');
+      setTasaCompra('');
+      setTasaVenta('');
+      setNota('');
 
       router.refresh();
     } catch (error) {
-      setErrorMessage("No fue posible registrar la operación.");
+      console.error(error);
+
+      setErrorMessage(
+        'No fue posible registrar la operación.',
+      );
     } finally {
       setSaving(false);
     }
   }
 
+  /**
+   * ==========================================
+   * RENDER
+   * ==========================================
+   */
+
   return (
     <section className="rounded-xl bg-white p-6 shadow-md">
-      <div className="flex justify-between  mb-6">
+      {/* HEADER */}
+      <div className="mb-6 flex justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Operaciones</h1>
+          <h1 className="text-xl font-bold text-gray-900">
+            Operaciones
+          </h1>
+
           <p className="text-sm text-gray-500">
-            Registra ventas desde cuentas operativas u operaciones directas.
+            Registra compras, ventas y
+            operaciones directas.
           </p>
         </div>
 
-        {selectedOrigen?.tipo === "CUENTA" && (
-          <PromedioCuenta
-            promedioCompra={promediosPorCuenta[selectedOrigen.id]}
-          />
-        )}
+        {operationMode ===
+          'VENTA' &&
+          selectedOrigen?.tipo ===
+            'CUENTA' && (
+            <PromedioCuenta
+              promedioCompra={
+                promedioCuentaSeleccionada
+              }
+            />
+          )}
       </div>
+
+      {/* ERROR */}
       {errorMessage && (
         <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-12">
+      {/* TIPO DETECTADO */}
+      {operationMode && (
+        <div className="mb-4 flex">
+          <span
+            className={[
+              'rounded-full px-3 py-1 text-xs font-bold',
+              operationMode ===
+              'COMPRA'
+                ? 'bg-green-50 text-green-700'
+                : operationMode ===
+                    'VENTA'
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'bg-purple-50 text-purple-700',
+            ].join(' ')}
+          >
+            {operationMode ===
+            'COMPRA'
+              ? 'COMPRA'
+              : operationMode ===
+                  'VENTA'
+                ? 'VENTA'
+                : 'OPERACIÓN DIRECTA'}
+          </span>
+        </div>
+      )}
+
+      <form
+        onSubmit={handleSubmit}
+        className="grid gap-4 lg:grid-cols-12"
+      >
+        {/* =============================
+            ORIGEN
+        ============================== */}
+
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Origen / proveedor
@@ -263,116 +836,230 @@ export function OperacionForm({
 
           <select
             value={origenValue}
-            onChange={(event) => handleOrigenChange(event.target.value)}
+            onChange={(event) =>
+              handleOrigenChange(
+                event.target.value,
+              )
+            }
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">Seleccione origen</option>
+            <option value="">
+              Seleccione origen
+            </option>
 
             <optgroup label="Mis cuentas operativas">
-              {origenes
-                .filter((origen) => origen.tipo === "CUENTA")
-                .map((origen) => (
+              {entidades
+                .filter(
+                  (item) =>
+                    item.tipo ===
+                    'CUENTA',
+                )
+                .map((item) => (
                   <option
-                    key={`${origen.tipo}:${origen.id}`}
-                    value={`${origen.tipo}:${origen.id}`}
+                    key={`CUENTA:${item.id}`}
+                    value={`CUENTA:${item.id}`}
                   >
-                    {origen.nombre} - {origen.saldo} {origen.moneda}
+                    {item.nombre} -{' '}
+                    {formatNumber(item.saldo)}{' '}
+                    {item.moneda}
                   </option>
                 ))}
             </optgroup>
 
             <optgroup label="Clientes / proveedores">
-              {origenes
-                .filter((origen) => origen.tipo === "CLIENTE")
-                .map((origen) => (
+              {entidades
+                .filter(
+                  (item) =>
+                    item.tipo ===
+                    'CLIENTE',
+                )
+                .map((item) => (
                   <option
-                    key={`${origen.tipo}:${origen.id}`}
-                    value={`${origen.tipo}:${origen.id}`}
+                    key={`CLIENTE:${item.id}`}
+                    value={`CLIENTE:${item.id}`}
                   >
-                    {origen.nombre}
+                    {item.nombre}
                   </option>
                 ))}
             </optgroup>
           </select>
-
-          {/* {operationMode && (
-            <p className="mt-2 text-xs font-medium text-gray-500">
-              {operationMode === "VENTA"
-                ? "Venta normal: moverá saldo de una cuenta operativa."
-                : "Operación directa: no moverá cuentas propias."}
-            </p>
-          )} */}
         </div>
+
+        {/* =============================
+            DESTINO
+        ============================== */}
 
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Cliente
+            {selectedOrigen?.tipo ===
+            'CLIENTE'
+              ? 'Cliente / cuenta destino'
+              : 'Cliente'}
           </label>
 
           <select
-            value={clienteId}
-            onChange={(event) => setClienteId(event.target.value)}
+            value={destinoValue}
+            onChange={(event) =>
+              handleDestinoChange(
+                event.target.value,
+              )
+            }
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">Seleccione cliente</option>
+            <option value="">
+              Seleccione destino
+            </option>
 
-            {clientes
-              .filter((cliente) => cliente.estado === "ACTIVO")
-              .map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.nombre}
-                </option>
-              ))}
+            {/* CLIENTES */}
+            <optgroup label="Clientes">
+              {clientes
+                .filter(
+                  (cliente) =>
+                    cliente.estado ===
+                    'ACTIVO',
+                )
+                .filter(
+                  (cliente) =>
+                    !(
+                      selectedOrigen
+                        ?.tipo ===
+                        'CLIENTE' &&
+                      selectedOrigen.id ===
+                        cliente.id
+                    ),
+                )
+                .map((cliente) => (
+                  <option
+                    key={`CLIENTE:${cliente.id}`}
+                    value={`CLIENTE:${cliente.id}`}
+                  >
+                    {cliente.nombre}
+                  </option>
+                ))}
+            </optgroup>
+
+            {/*
+             * Las cuentas solamente aparecen
+             * cuando el origen es CLIENTE.
+             *
+             * Esto habilita:
+             *
+             * CLIENTE -> CUENTA = COMPRA
+             */}
+            {selectedOrigen?.tipo ===
+              'CLIENTE' && (
+              <optgroup label="Mis cuentas operativas">
+                {cuentas
+                  .filter(
+                    (cuenta) =>
+                      cuenta.estado ===
+                        'ACTIVO' &&
+                      cuenta.categoria ===
+                        'OPERATIVA',
+                  )
+                  .map((cuenta) => (
+                    <option
+                      key={`CUENTA:${cuenta.id}`}
+                      value={`CUENTA:${cuenta.id}`}
+                    >
+                      {cuenta.nombre} ·{' '}
+                      {cuenta.moneda}
+                    </option>
+                  ))}
+              </optgroup>
+            )}
           </select>
         </div>
+
+        {/* NUEVO CLIENTE */}
         <div className="flex items-end lg:col-span-1">
-
-        <button
-          type="button"
-          onClick={() => setOpenClienteModal(true)}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg hover:shadow-blue-500/40 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          <button
+            type="button"
+            onClick={() =>
+              setOpenClienteModal(
+                true,
+              )
+            }
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:cursor-pointer hover:shadow-lg hover:shadow-blue-500/40"
           >
-          <FiUserPlus className="h-4 w-4" />
-        </button>
-          </div>
+            <FiUserPlus className="h-4 w-4" />
+          </button>
+        </div>
 
-        <div className="lg:col-span-1">
+        {/* =============================
+            MONEDA
+        ============================== */}
+
+        <div className="lg:col-span-2">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Moneda
           </label>
 
           <select
             value={
-              selectedOrigen?.tipo === "CUENTA" ? selectedOrigen.moneda : moneda
+              operationMode ===
+                'VENTA' &&
+              selectedOrigen?.tipo ===
+                'CUENTA'
+                ? selectedOrigen.moneda
+                : operationMode ===
+                      'COMPRA' &&
+                    selectedDestino?.tipo ===
+                      'CUENTA'
+                  ? selectedDestino.moneda
+                  : moneda
             }
-            disabled={selectedOrigen?.tipo === "CUENTA"}
-            onChange={(event) => setMoneda(event.target.value as Moneda)}
+            disabled={
+              operationMode ===
+                'VENTA' ||
+              operationMode ===
+                'COMPRA'
+            }
+            onChange={(event) =>
+              setMoneda(
+                event.target
+                  .value as Moneda,
+              )
+            }
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="BS">BS</option>
-            <option value="USD">USD</option>
-            <option value="USDT">USDT</option>
+            <option value="BS">
+              BS
+            </option>
+
+            <option value="USD">
+              USD
+            </option>
+
+            <option value="USDT">
+              USDT
+            </option>
           </select>
         </div>
 
-        <div className="lg:col-span-4">
+        {/* =============================
+            MONTO
+        ============================== */}
+
+        <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Monto
           </label>
 
-          {/* <input
-            type="number"
-            value={montoTransaccion}
-            onChange={(event) => setMontoTransaccion(event.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            placeholder="0"
-          /> */}
           <FormattedNumberInput
             value={montoTransaccion}
-            onChange={(value) => setMontoTransaccion(value)}
+            onChange={(value) =>
+              setMontoTransaccion(
+                value,
+              )
+            }
             placeholder="0"
           />
         </div>
+
+        {/* =============================
+            TASA COMPRA
+        ============================== */}
 
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
@@ -383,11 +1070,19 @@ export function OperacionForm({
             type="number"
             step="0.0001"
             value={tasaCompra}
-            onChange={(event) => setTasaCompra(event.target.value)}
+            onChange={(event) =>
+              setTasaCompra(
+                event.target.value,
+              )
+            }
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="0"
           />
         </div>
+
+        {/* =============================
+            TOTAL COMPRA
+        ============================== */}
 
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
@@ -396,77 +1091,143 @@ export function OperacionForm({
 
           <input
             readOnly
-            value={formatMoney(preview.totalCompraCop)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
-          />
-        </div>
-        <div className="lg:col-span-3">
-          <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Tasa Venta
-          </label>
-
-          <input
-            type="number"
-            step="0.0001"
-            value={tasaVenta}
-            onChange={(event) => setTasaVenta(event.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            placeholder="0"
-          />
-        </div>
-
-        <div className="lg:col-span-3">
-          <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Total venta
-          </label>
-
-          <input
-            readOnly
-            value={formatMoney(preview.totalVentaCop)}
+            value={formatMoney(
+              preview.totalCompraCop,
+            )}
             className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
           />
         </div>
 
-        <div className="lg:col-span-3">
-          <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Utilidad estimada
-          </label>
+        {/*
+         * =================================
+         * SOLO VENTA / DIRECTA
+         * =================================
+         *
+         * En COMPRA ocultamos:
+         *
+         * - Tasa Venta
+         * - Total Venta
+         * - Utilidad
+         */}
+        {operationMode !==
+          'COMPRA' && (
+          <>
+            {/* TASA VENTA */}
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Tasa Venta
+              </label>
 
-          <input
-            readOnly
-            value={formatMoney(preview.utilidadCop)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
-          />
-        </div>
+              <input
+                type="number"
+                step="0.0001"
+                value={tasaVenta}
+                onChange={(event) =>
+                  setTasaVenta(
+                    event.target.value,
+                  )
+                }
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="0"
+              />
+            </div>
 
-        <div className="lg:col-span-6">
+            {/* TOTAL VENTA */}
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Total venta
+              </label>
+
+              <input
+                readOnly
+                value={formatMoney(
+                  preview.totalVentaCop,
+                )}
+                className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+              />
+            </div>
+
+            {/* UTILIDAD */}
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Utilidad estimada
+              </label>
+
+              <input
+                readOnly
+                value={formatMoney(
+                  preview.utilidadCop,
+                )}
+                className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+              />
+            </div>
+          </>
+        )}
+
+        {/* =============================
+            NOTA
+        ============================== */}
+
+        <div
+          className={
+            operationMode ===
+            'COMPRA'
+              ? 'lg:col-span-6'
+              : 'lg:col-span-6'
+          }
+        >
           <label className="mb-1 block text-sm font-semibold text-gray-700">
             Nota
           </label>
 
           <input
             value={nota}
-            onChange={(event) => setNota(event.target.value)}
+            onChange={(event) =>
+              setNota(
+                event.target.value,
+              )
+            }
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="Nota de la operación"
           />
         </div>
 
+        {/* =============================
+            SUBMIT
+        ============================== */}
+
         <div className="flex items-end lg:col-span-3">
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:shadow-lg hover:shadow-blue-500/40 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:cursor-pointer hover:shadow-lg hover:shadow-blue-500/40 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiPlus className="h-4 w-4" />
-            {saving ? "Guardando..." : "Registrar"}
+
+            {saving
+              ? 'Guardando...'
+              : operationMode ===
+                    'COMPRA'
+                ? 'Registrar compra'
+                : operationMode ===
+                      'VENTA'
+                  ? 'Registrar venta'
+                  : operationMode ===
+                        'DIRECTA'
+                    ? 'Registrar directa'
+                    : 'Registrar'}
           </button>
         </div>
       </form>
+
       <ClienteFormModal
         cliente={null}
         open={openClienteModal}
-        onClose={() => setOpenClienteModal(false)}
+        onClose={() =>
+          setOpenClienteModal(
+            false,
+          )
+        }
       />
     </section>
   );

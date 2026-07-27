@@ -2,14 +2,19 @@
 
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { getAuthUserServer } from '@/services/auth.server';
 
-export default function PrivateLayout({
+export default async function PrivateLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+
+  const user = await getAuthUserServer();
+  console.log("current: ",user);
+  
   return (
-    <AppShell>
+    <AppShell user={user}>
       {children}
     </AppShell>
   );

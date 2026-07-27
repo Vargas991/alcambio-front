@@ -47,6 +47,7 @@ export default async function ClienteDetallePage({
     pdfSearchParams.toString() ? `?${pdfSearchParams.toString()}` : ''
   }`;
 
+
   const [perfil, operaciones, ledger, clientes, cuentas, promedios] = await Promise.all([
     getClientePerfilServer(id),
 
@@ -74,12 +75,12 @@ export default async function ClienteDetallePage({
     getPromedioCompraCuentasServer(),
   ]);
 
-  const cuentasBaseCop = cuentas.filter(
-  (cuenta) =>
-    cuenta.estado === 'ACTIVO' &&
-    cuenta.categoria === 'BASE_COP' &&
-    cuenta.moneda === 'COP',
-);
+//   const cuentasBaseCop = cuentas.filter(
+//   (cuenta) =>
+//     cuenta.estado === 'ACTIVO' &&
+//     cuenta.categoria === 'BASE_COP' &&
+//     cuenta.moneda === 'COP',
+// );
 
   const { cliente, balance } = perfil;
 
@@ -90,7 +91,8 @@ export default async function ClienteDetallePage({
         balance={balance} 
         pdfUrl={pdfUrl}
         clientes={clientes}
-        cuentas={cuentasBaseCop}  
+        cuentas={cuentas}  
+        promedios={promedios}
       />
 
       <ClientePerfilTabs

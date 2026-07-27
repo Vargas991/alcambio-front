@@ -7,9 +7,11 @@ import { usePathname } from 'next/navigation';
 import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { AuthUser } from '@/types/auth';
 
 type AppShellProps = {
   children: ReactNode;
+  user: AuthUser;
 };
 
 const pageTitles: Record<string, { title: string; section: string }> = {
@@ -81,7 +83,7 @@ function getPageInfo(pathname: string) {
   };
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, user }: AppShellProps) {
   const pathname = usePathname();
 
   // Mobile
@@ -125,6 +127,7 @@ export function AppShell({ children }: AppShellProps) {
         onClose={handleCloseSidebar}
         onCollapse={handleCollapseSidebar}
         onExpand={handleExpandSidebar}
+        user={user}
       />
 
       {sidebarOpen && (

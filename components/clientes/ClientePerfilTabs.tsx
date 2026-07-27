@@ -9,6 +9,7 @@ import { OperacionesTable } from '@/components/operaciones/OperacionesTable';
 import type { ClienteLedgerEntry } from '@/types/clientes';
 import type { Cliente, Cuenta, Operacion } from '@/types/operaciones';
 import { PromedioCompraCuenta } from '@/types/cuentas';
+import { ClienteMovimientosTable } from './ClientesMovimientosTable';
 
 type ClientePerfilTabsProps = {
   operaciones: Operacion[];
@@ -63,15 +64,13 @@ export function ClientePerfilTabs({
 
       {activeTab === 'operaciones' ? (
         <div className="space-y-4">
-          <OperacionesFilters />
+          <ClienteLedgerFilters />
 
-          <OperacionesTable
-            promedios ={promedios}
-            cuentas={cuentas}
+          <ClienteMovimientosTable
+            movimientos={movimientos}
             clientes={clientes}
-            operaciones={operaciones}
-            title="Operaciones del cliente"
-            description="Ventas, compras y operaciones directas asociadas a este cliente."
+            cuentas={cuentas}
+            promedios={promedios}
           />
         </div>
       ) : (

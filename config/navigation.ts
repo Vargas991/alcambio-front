@@ -10,7 +10,20 @@ import {
   FiDollarSign,
 } from 'react-icons/fi';
 
-export const mainNavigation = [
+type SidebarItemConfig = {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{
+    className?: string;
+  }>;
+  roles?: Array<
+    'ADMIN' | 'OPERADOR' | 'VISOR'
+  >;
+};
+
+
+
+export const mainNavigation: SidebarItemConfig[] = [
   {
     label: 'Dashboard',
     href: '/dashboard',
@@ -48,10 +61,16 @@ export const mainNavigation = [
   },
 ];
 
-export const secondaryNavigation = [
+export const secondaryNavigation:SidebarItemConfig[] = [
   {
     label: 'Perfil',
     href: '/dashboard/perfil',
     icon: FiUser,
-  }
+  },
+  {
+    label: 'Usuarios',
+    href: '/dashboard/usuarios',
+    icon: FiUsers,
+    roles: ['ADMIN']
+  },
 ];

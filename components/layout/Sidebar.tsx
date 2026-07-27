@@ -1,15 +1,14 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { FiMenu, FiX } from 'react-icons/fi';
+import Link from "next/link";
+import { FiMenu, FiX } from "react-icons/fi";
 
-import {
-  mainNavigation,
-  secondaryNavigation,
-} from '@/config/navigation';
+import { mainNavigation, secondaryNavigation } from "@/config/navigation";
 
-import { SidebarItem } from '../dashboard/SidebarItem';
-import { LogoutButton } from '../dashboard/LogoutButton';
+import { SidebarItem } from "../dashboard/SidebarItem";
+import { LogoutButton } from "../dashboard/LogoutButton";
+import { Usuario } from "../../types/usuarios";
+import { AuthUser } from "@/types/auth";
 
 type SidebarProps = {
   open?: boolean;
@@ -17,6 +16,7 @@ type SidebarProps = {
   onClose?: () => void;
   onCollapse?: () => void;
   onExpand?: () => void;
+  user: AuthUser;
 };
 
 export function Sidebar({
@@ -25,34 +25,30 @@ export function Sidebar({
   onClose,
   onCollapse,
   onExpand,
+  user,
 }: SidebarProps) {
   return (
     <aside
       className={[
-        'fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 transition-transform duration-300',
+        "fixed inset-0 z-50 my-4 ml-4 h-[calc(100vh-32px)] w-72 rounded-xl bg-gradient-to-br from-gray-800 to-gray-900 transition-transform duration-300",
 
         // Mobile
-        open ? 'translate-x-0' : '-translate-x-80',
+        open ? "translate-x-0" : "-translate-x-80",
 
         // Desktop
-        collapsed ? 'xl:-translate-x-60' : 'xl:translate-x-0',
-      ].join(' ')}
+        collapsed ? "xl:-translate-x-60" : "xl:translate-x-0",
+      ].join(" ")}
     >
       <div className="relative border-b border-white/20">
         {!collapsed && (
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-4 px-8 py-6"
-          >
+          <Link href="/dashboard" className="flex items-center gap-4 px-8 py-6">
             <h6 className="font-sans text-base font-semibold leading-relaxed tracking-normal text-white">
               AlCambio
             </h6>
           </Link>
         )}
 
-        {collapsed && (
-          <div className="h-[72px]" />
-        )}
+        {collapsed && <div className="h-[72px]" />}
 
         {/* Cerrar en móvil */}
         <button
@@ -93,10 +89,7 @@ export function Sidebar({
         <div className="m-4">
           <ul className="mb-4 flex flex-col gap-1">
             {mainNavigation.map((item) => (
-              <SidebarItem
-                key={item.href}
-                {...item}
-              />
+              <SidebarItem key={item.href} {...item} />
             ))}
           </ul>
 
@@ -107,13 +100,14 @@ export function Sidebar({
               </p>
             </li>
 
-            {secondaryNavigation.map((item) => (
-              <SidebarItem
-                key={item.href}
-                {...item}
-              />
-            ))}
-
+            {secondaryNavigation
+              .filter(
+                (item) =>
+                  !item.roles || (!!user && item.roles.includes(user.rol))
+              )
+              .map((item) => (
+                <SidebarItem key={item.href} {...item} />
+              ))}
             <LogoutButton />
           </ul>
         </div>

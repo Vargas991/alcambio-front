@@ -1,20 +1,42 @@
+import { ClienteNombreFilter } from '@/components/clientes/ClienteNombreFilter';
 import { ClientesManager } from '@/components/clientes/ClientesManager';
+
 import { getClientesServer } from '@/services/clientes.server';
 
-export default async function ClientesPage() {
-  const clientes = await getClientesServer();
+type ClientesPageProps = {
+  searchParams: Promise<{
+    nombre?: string;
+  }>;
+};
+
+export default async function ClientesPage({
+  searchParams,
+}: ClientesPageProps) {
+  const params =
+    await searchParams;
+
+  const clientes =
+    await getClientesServer(
+      params.nombre,
+    );
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl bg-white p-6 shadow-md">
-        <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Clientes
+        </h1>
 
         <p className="mt-1 text-sm text-gray-500">
-          Administra clientes y proveedores registrados en el sistema.
+          Gestiona clientes y proveedores del sistema.
         </p>
-      </section>
+      </div>
 
-      <ClientesManager clientes={clientes} />
+      <ClienteNombreFilter />
+
+      <ClientesManager
+        clientes={clientes}
+      />
     </div>
   );
 }

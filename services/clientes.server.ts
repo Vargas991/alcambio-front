@@ -62,16 +62,40 @@ function buildQueryParams(params?: Record<string, string | undefined>) {
   return query ? `?${query}` : '';
 }
 
-export async function getClientesServer() {
+export async function getClientesServer(
+  nombre?: string,
+) {
+  const query =
+    nombre?.trim()
+      ? `?nombre=${encodeURIComponent(
+          nombre.trim(),
+        )}`
+      : '';
+
   const response =
-    await serverApiGet<ApiResponse<ClienteResumenItem[]>>('/clientes');
+    await serverApiGet<
+      ApiResponse<
+        ClienteResumenItem[]
+      >
+    >(
+      `/clientes${query}`,
+    );
 
   return response.data
-    .filter((cliente) => cliente.estado === 'ACTIVO')
+    .filter(
+      (cliente) =>
+        cliente.estado ===
+        'ACTIVO',
+    )
     .sort((a, b) =>
-      a.nombre.localeCompare(b.nombre, 'es', {
-        sensitivity: 'base',
-      }),
+      a.nombre.localeCompare(
+        b.nombre,
+        'es',
+        {
+          sensitivity:
+            'base',
+        },
+      ),
     );
 }
 
