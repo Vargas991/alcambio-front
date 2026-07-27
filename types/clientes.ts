@@ -20,6 +20,7 @@ export type ClientePerfil = {
     creadoEn: string;
     actualizadoEn: string;
   };
+
   balance: {
     totalDebitosCop: number;
     totalCreditosCop: number;
@@ -27,6 +28,119 @@ export type ClientePerfil = {
     estado: 'ME_DEBE' | 'LE_DEBO' | 'SALDADO';
     totalUtilidadRealCop: number;
   };
+};
+
+export type ClienteLedgerRelacion = {
+  id: string;
+  nombre: string;
+  documento?: string | null;
+  telefono?: string | null;
+  estado?: string;
+};
+
+export type ClienteLedgerCuenta = {
+  id: string;
+  nombre: string;
+  moneda: string;
+  categoria?: string;
+  tipo?: string;
+  saldo?: string | number;
+  aplica4x1000?: boolean;
+};
+
+export type ClienteLedgerOperacion = {
+  id: string;
+  codigo?: string;
+  nombre?: string | null;
+
+  tipo: string;
+  estado: string;
+
+  deudorId?: string | null;
+  acreedorId?: string | null;
+  cuentaOperativaId?: string | null;
+
+  monedaTransaccion: string;
+  montoTransaccion: string | number;
+
+  tasaCompra: string | number | null;
+  tasaVenta: string | number | null;
+
+  totalCompraCop: string | number | null;
+  totalVentaCop: string | number | null;
+  utilidadCop: string | number | null;
+
+  fechaOperacion?: string | null;
+  destinatario?: string | null;
+  notas?: string | null;
+
+  creadoEn?: string;
+  actualizadoEn?: string;
+
+  deudor?: ClienteLedgerRelacion | null;
+  acreedor?: ClienteLedgerRelacion | null;
+  cuentaOperativa?: ClienteLedgerCuenta | null;
+};
+
+export type ClienteLedgerEntrada = {
+  id: string;
+
+  tipo: string;
+  estado: string;
+
+  deudorId?: string | null;
+  acreedorId?: string | null;
+  cuentaId?: string | null;
+
+  montoCop: string | number;
+
+  aplica4x1000?: boolean;
+  impuesto4x1000Cop?: string | number;
+  montoAplicadoDeudaCop?: string | number | null;
+
+  descripcion?: string | null;
+  referencia?: string | null;
+  notas?: string | null;
+
+  creadoEn: string;
+  actualizadoEn?: string;
+
+  deudor?: ClienteLedgerRelacion | null;
+  acreedor?: ClienteLedgerRelacion | null;
+  cuenta?: ClienteLedgerCuenta | null;
+};
+
+export type ClienteLedgerSalida = {
+  id: string;
+
+  tipo: string;
+  estado: string;
+
+  acreedorId?: string | null;
+  cuentaId?: string | null;
+
+  montoCop?: string | number;
+  montoBaseCop?: string | number;
+
+  proveedorCobra4x1000?: boolean;
+  impuestoProveedor4x1000Cop?: string | number;
+
+  montoEnviadoCop?: string | number;
+
+  cuentaAplica4x1000?: boolean;
+  impuestoCuenta4x1000Cop?: string | number;
+
+  totalDebitadoCop?: string | number;
+
+  descripcion?: string | null;
+  referencia?: string | null;
+  notas?: string | null;
+
+  creadoEn: string;
+  actualizadoEn?: string;
+
+  acreedor?: ClienteLedgerRelacion | null;
+  cuenta?: ClienteLedgerCuenta | null;
 };
 
 export type ClienteLedgerEntry = {
@@ -43,47 +157,16 @@ export type ClienteLedgerEntry = {
 
   debitoCop: number | string;
   creditoCop: number | string;
+
   saldoAcumuladoCop?: number | string;
   utilidadRealCop?: number | string;
 
   descripcion: string;
   creadoEn: string;
 
-  operacion?: {
-    id?: string;
-    codigo?: string;
-    tipo?: string | null;
-    estado?: string;
-    tasaCompra?: number | string | null;
-    tasaVenta?: number | string | null;
-    totalCompraCop?: number | string | null;
-    totalVentaCop?: number | string | null;
-    utilidadCop?: number | string | null;
-    notas?: string | null;
-  } | null;
-
-  entrada?: {
-    id: string;
-    tipo: string;
-    estado: string;
-    montoCop?: number | string;
-    descripcion?: string | null;
-  } | null;
-
-  salida?: {
-    id: string;
-    tipo: string;
-    estado: string;
-    montoCop?: number | string;
-    montoBaseCop?: number | string;
-    montoEnviadoCop?: number | string;
-    totalDebitadoCop?: number | string;
-    impuestoProveedor4x1000Cop?: number | string;
-    impuestoCuenta4x1000Cop?: number | string;
-    descripcion?: string | null;
-  } | null;
-
-  [key: string]: unknown;
+  operacion?: ClienteLedgerOperacion | null;
+  entrada?: ClienteLedgerEntrada | null;
+  salida?: ClienteLedgerSalida | null;
 };
 
 export type ClienteLedgerResponse = {
@@ -94,6 +177,7 @@ export type ClienteLedgerResponse = {
     telefono: string | null;
     estado: string;
   };
+
   filtros: {
     desde: string | null;
     hasta: string | null;
@@ -102,6 +186,7 @@ export type ClienteLedgerResponse = {
     tipoMov?: string | null;
     moneda: string | null;
   };
+
   resumen: {
     totalDebitosCop: number;
     totalCreditosCop: number;
@@ -111,18 +196,25 @@ export type ClienteLedgerResponse = {
     totalDebitosGlobalCop: number;
     totalCreditosGlobalCop: number;
     saldoTotalCop: number;
-    estadoTotal: 'ME_DEBE' | 'LE_DEBO' | 'SALDADO';
+    estadoTotal:
+      | 'ME_DEBE'
+      | 'LE_DEBO'
+      | 'SALDADO';
 
     totalUtilidadRealCop: number;
+
     utilidadPorDia?: {
       fecha: string;
       utilidadCop: number;
     }[];
   };
+
   movimientos: ClienteLedgerEntry[];
 };
 
-export type EstadoCarteraCliente = 'ME_DEBE' | 'LE_DEBO';
+export type EstadoCarteraCliente =
+  | 'ME_DEBE'
+  | 'LE_DEBO';
 
 export type CarteraClienteItem = {
   cliente: {
@@ -132,9 +224,11 @@ export type CarteraClienteItem = {
     telefono: string | null;
     estado: string;
   };
+
   totalDebitosCop: number;
   totalCreditosCop: number;
   saldoCop: number;
+
   estadoCartera: EstadoCarteraCliente;
 };
 
@@ -143,9 +237,11 @@ export type CarteraResponse = {
     totalPorCobrarCop: number;
     totalPorPagarCop: number;
     balanceNetoCop: number;
+
     cantidadMeDeben: number;
     cantidadLesDebo: number;
   };
+
   meDeben: CarteraClienteItem[];
   lesDebo: CarteraClienteItem[];
 };

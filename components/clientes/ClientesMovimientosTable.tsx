@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { formatDate } from '@/lib/formatters';
 
 import type { ClienteLedgerEntry } from '@/types/clientes';
-import type { Cliente, Cuenta } from '@/types/operaciones';
-import type { PromedioCompraCuenta } from '@/types/cuentas';
+import type { Cliente } from '@/types/operaciones';
+import type { PromedioCompraCuenta, Cuenta } from '@/types/cuentas';
 
 import { MovimientoActions } from './MovimientosActions';
 
