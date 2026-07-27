@@ -12,9 +12,10 @@ import type {
   Cliente,
   Operacion,
 } from '@/types/operaciones';
+
 import type { Entrada } from '@/types/entradas';
 import type { Salida } from '@/types/salidas';
-import type { Cuenta, PromedioCompraCuenta } from '@/types/cuentas';
+import type {  Cuenta, PromedioCompraCuenta } from '@/types/cuentas';
 
 import { EntradaFormModal } from '@/components/entradas/EntradaFormModal';
 import { SalidaFormModal } from '@/components/salidas/SalidaFormModal';

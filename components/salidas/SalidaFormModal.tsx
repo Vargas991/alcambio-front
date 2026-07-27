@@ -11,13 +11,13 @@ import {
 } from '@/lib/number-format';
 
 import type { ClienteResumenItem } from '@/types/clientes';
-import type { Cuenta } from '@/types/cuentas';
 import type {
   Salida,
   TipoSalida,
 } from '@/types/salidas';
 
 import { FormattedNumberInput } from '../ui/FormattedNumberInput';
+import { Cuenta } from '@/types/cuentas';
 
 type SalidaFormModalProps = {
   open: boolean;

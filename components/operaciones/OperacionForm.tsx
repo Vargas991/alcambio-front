@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { FiPlus, FiUserPlus } from 'react-icons/fi';
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { FiPlus, FiUserPlus } from "react-icons/fi";
 
-import { api } from '@/lib/api';
-import { formatMoney, formatNumber } from '@/lib/formatters';
-import { parseFormattedNumber } from '@/lib/number-format';
+import { api } from "@/lib/api";
+import { formatMoney, formatNumber } from "@/lib/formatters";
+import { parseFormattedNumber } from "@/lib/number-format";
 
 import type {
   Cliente,
   Cuenta,
   Moneda,
   OrigenOperacion,
-} from '@/types/operaciones';
+} from "@/types/operaciones";
 
-import type { PromedioCompraCuenta } from '@/types/cuentas';
+import type { PromedioCompraCuenta } from "@/types/cuentas";
 
-import { FormattedNumberInput } from '../ui/FormattedNumberInput';
-import PromedioCuenta from '../cuentas/PromedioCuenta';
-import { ClienteFormModal } from '../clientes/ClienteFormModal';
+import { FormattedNumberInput } from "../ui/FormattedNumberInput";
+import PromedioCuenta from "../cuentas/PromedioCuenta";
+import { ClienteFormModal } from "../clientes/ClienteFormModal";
 
 type OperacionFormProps = {
   clientes: Cliente[];
@@ -27,8 +27,7 @@ type OperacionFormProps = {
   promedios: PromedioCompraCuenta[];
 };
 
-type TipoEntidadOperacion =
-  | OrigenOperacion;
+type TipoEntidadOperacion = OrigenOperacion;
 
 function roundCop(value: number) {
   return Math.round(value);
@@ -52,41 +51,25 @@ export function OperacionForm({
    * - cliente
    * - cuenta operativa
    */
-  const [origenValue, setOrigenValue] =
-    useState('');
+  const [origenValue, setOrigenValue] = useState("");
 
-  const [destinoValue, setDestinoValue] =
-    useState('');
+  const [destinoValue, setDestinoValue] = useState("");
 
-  const [moneda, setMoneda] =
-    useState<Moneda>('BS');
+  const [moneda, setMoneda] = useState<Moneda>("BS");
 
-  const [
-    montoTransaccion,
-    setMontoTransaccion,
-  ] = useState('');
+  const [montoTransaccion, setMontoTransaccion] = useState("");
 
-  const [tasaCompra, setTasaCompra] =
-    useState('');
+  const [tasaCompra, setTasaCompra] = useState("");
 
-  const [tasaVenta, setTasaVenta] =
-    useState('');
+  const [tasaVenta, setTasaVenta] = useState("");
 
-  const [nota, setNota] =
-    useState('');
+  const [nota, setNota] = useState("");
 
-  const [saving, setSaving] =
-    useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const [
-    openClienteModal,
-    setOpenClienteModal,
-  ] = useState(false);
+  const [openClienteModal, setOpenClienteModal] = useState(false);
 
   /**
    * ==========================================
@@ -94,49 +77,28 @@ export function OperacionForm({
    * ==========================================
    */
 
-  const entidades =
-    useMemo<TipoEntidadOperacion[]>(
-      () => {
-        const cuentasOperativas =
-          cuentas
-            .filter(
-              (cuenta) =>
-                cuenta.estado ===
-                'ACTIVO',
-            )
-            .filter(
-              (cuenta) =>
-                cuenta.categoria ===
-                'OPERATIVA',
-            )
-            .map((cuenta) => ({
-              tipo: 'CUENTA' as const,
-              id: cuenta.id,
-              nombre: cuenta.nombre,
-              moneda: cuenta.moneda,
-              saldo: cuenta.saldo,
-            }));
+  const entidades = useMemo<TipoEntidadOperacion[]>(() => {
+    const cuentasOperativas = cuentas
+      .filter((cuenta) => cuenta.estado === "ACTIVO")
+      .filter((cuenta) => cuenta.categoria === "OPERATIVA")
+      .map((cuenta) => ({
+        tipo: "CUENTA" as const,
+        id: cuenta.id,
+        nombre: cuenta.nombre,
+        moneda: cuenta.moneda,
+        saldo: cuenta.saldo,
+      }));
 
-        const clientesActivos =
-          clientes
-            .filter(
-              (cliente) =>
-                cliente.estado ===
-                'ACTIVO',
-            )
-            .map((cliente) => ({
-              tipo: 'CLIENTE' as const,
-              id: cliente.id,
-              nombre: cliente.nombre,
-            }));
+    const clientesActivos = clientes
+      .filter((cliente) => cliente.estado === "ACTIVO")
+      .map((cliente) => ({
+        tipo: "CLIENTE" as const,
+        id: cliente.id,
+        nombre: cliente.nombre,
+      }));
 
-        return [
-          ...cuentasOperativas,
-          ...clientesActivos,
-        ];
-      },
-      [clientes, cuentas],
-    );
+    return [...cuentasOperativas, ...clientesActivos];
+  }, [clientes, cuentas]);
 
   /**
    * ==========================================
@@ -145,13 +107,8 @@ export function OperacionForm({
    */
 
   const selectedOrigen = useMemo(
-    () =>
-      entidades.find(
-        (item) =>
-          `${item.tipo}:${item.id}` ===
-          origenValue,
-      ),
-    [entidades, origenValue],
+    () => entidades.find((item) => `${item.tipo}:${item.id}` === origenValue),
+    [entidades, origenValue]
   );
 
   /**
@@ -161,13 +118,8 @@ export function OperacionForm({
    */
 
   const selectedDestino = useMemo(
-    () =>
-      entidades.find(
-        (item) =>
-          `${item.tipo}:${item.id}` ===
-          destinoValue,
-      ),
-    [entidades, destinoValue],
+    () => entidades.find((item) => `${item.tipo}:${item.id}` === destinoValue),
+    [entidades, destinoValue]
   );
 
   /**
@@ -176,38 +128,23 @@ export function OperacionForm({
    * ==========================================
    */
 
-  const promediosPorCuenta =
-    useMemo(() => {
-      return Object.fromEntries(
-        promedios.map(
-          (promedio) => [
-            promedio.cuentaId,
-            promedio,
-          ],
-        ),
-      );
-    }, [promedios]);
+  const promediosPorCuenta = useMemo(() => {
+    return Object.fromEntries(
+      promedios.map((promedio) => [promedio.cuentaId, promedio])
+    );
+  }, [promedios]);
 
   /**
    * Para venta interesa el promedio
    * de la cuenta ORIGEN.
    */
-  const promedioCuentaSeleccionada =
-    useMemo(() => {
-      if (
-        selectedOrigen?.tipo !==
-        'CUENTA'
-      ) {
-        return undefined;
-      }
+  const promedioCuentaSeleccionada = useMemo(() => {
+    if (selectedOrigen?.tipo !== "CUENTA") {
+      return undefined;
+    }
 
-      return promediosPorCuenta[
-        selectedOrigen.id
-      ];
-    }, [
-      selectedOrigen,
-      promediosPorCuenta,
-    ]);
+    return promediosPorCuenta[selectedOrigen.id];
+  }, [selectedOrigen, promediosPorCuenta]);
 
   /**
    * ==========================================
@@ -221,37 +158,28 @@ export function OperacionForm({
 
   const operationMode = useMemo(() => {
     if (
-      selectedOrigen?.tipo ===
-        'CUENTA' &&
-      selectedDestino?.tipo ===
-        'CLIENTE'
+      selectedOrigen?.tipo === "CUENTA" &&
+      selectedDestino?.tipo === "CLIENTE"
     ) {
-      return 'VENTA' as const;
+      return "VENTA" as const;
     }
 
     if (
-      selectedOrigen?.tipo ===
-        'CLIENTE' &&
-      selectedDestino?.tipo ===
-        'CUENTA'
+      selectedOrigen?.tipo === "CLIENTE" &&
+      selectedDestino?.tipo === "CUENTA"
     ) {
-      return 'COMPRA' as const;
+      return "COMPRA" as const;
     }
 
     if (
-      selectedOrigen?.tipo ===
-        'CLIENTE' &&
-      selectedDestino?.tipo ===
-        'CLIENTE'
+      selectedOrigen?.tipo === "CLIENTE" &&
+      selectedDestino?.tipo === "CLIENTE"
     ) {
-      return 'DIRECTA' as const;
+      return "DIRECTA" as const;
     }
 
     return null;
-  }, [
-    selectedOrigen,
-    selectedDestino,
-  ]);
+  }, [selectedOrigen, selectedDestino]);
 
   /**
    * ==========================================
@@ -259,10 +187,7 @@ export function OperacionForm({
    * ==========================================
    */
 
-  const montoNumber =
-    parseFormattedNumber(
-      montoTransaccion,
-    ) || 0;
+  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
 
   /**
    * En compra la tasa de venta no tiene
@@ -272,58 +197,38 @@ export function OperacionForm({
    * usamos la misma tasa de compra.
    */
   const tasaVentaEfectiva =
-    operationMode === 'COMPRA'
+    operationMode === "COMPRA"
       ? Number(tasaCompra || 0)
       : Number(tasaVenta || 0);
 
   const preview = useMemo(() => {
-    const monto =
-      parseFormattedNumber(
-        montoTransaccion,
-      ) || 0;
+    const monto = parseFormattedNumber(montoTransaccion) || 0;
 
-    const tc =
-      Number(tasaCompra || 0);
+    const tc = Number(tasaCompra || 0);
 
-    const tv =
-      operationMode === 'COMPRA'
-        ? tc
-        : Number(tasaVenta || 0);
+    const tv = operationMode === "COMPRA" ? tc : Number(tasaVenta || 0);
 
-    const totalCompraCop =
-      roundCop(monto * tc);
+    const totalCompraCop = roundCop(monto * tc);
 
-    const totalVentaCop =
-      roundCop(monto * tv);
+    const totalVentaCop = roundCop(monto * tv);
 
-    const utilidadCop =
-      totalVentaCop -
-      totalCompraCop;
+    const utilidadCop = totalVentaCop - totalCompraCop;
 
     return {
       totalCompraCop,
       totalVentaCop,
       utilidadCop,
     };
-  }, [
-    montoTransaccion,
-    tasaCompra,
-    tasaVenta,
-    operationMode,
-  ]);
+  }, [montoTransaccion, tasaCompra, tasaVenta, operationMode]);
 
   /**
    * El saldo solamente se valida cuando
    * vendemos desde una cuenta propia.
    */
   const saldoInsuficiente =
-    operationMode === 'VENTA' &&
-    selectedOrigen?.tipo ===
-      'CUENTA' &&
-    montoNumber >
-      Number(
-        selectedOrigen.saldo || 0,
-      );
+    operationMode === "VENTA" &&
+    selectedOrigen?.tipo === "CUENTA" &&
+    montoNumber > Number(selectedOrigen.saldo || 0);
 
   /**
    * ==========================================
@@ -331,23 +236,18 @@ export function OperacionForm({
    * ==========================================
    */
 
-  function handleOrigenChange(
-    value: string,
-  ) {
+  function handleOrigenChange(value: string) {
     setOrigenValue(value);
-    setDestinoValue('');
-    setErrorMessage('');
+    setDestinoValue("");
+    setErrorMessage("");
 
-    const origen =
-      entidades.find(
-        (item) =>
-          `${item.tipo}:${item.id}` ===
-          value,
-      );
+    const origen = entidades.find(
+      (item) => `${item.tipo}:${item.id}` === value
+    );
 
     if (!origen) {
-      setTasaCompra('');
-      setTasaVenta('');
+      setTasaCompra("");
+      setTasaVenta("");
       return;
     }
 
@@ -356,30 +256,18 @@ export function OperacionForm({
      *
      * Será una venta.
      */
-    if (
-      origen.tipo === 'CUENTA'
-    ) {
+    if (origen.tipo === "CUENTA") {
       setMoneda(origen.moneda);
 
-      const promedio =
-        promediosPorCuenta[
-          origen.id
-        ];
+      const promedio = promediosPorCuenta[origen.id];
 
-      if (
-        promedio &&
-        promedio.promedioCompra > 0
-      ) {
-        setTasaCompra(
-          String(
-            promedio.promedioCompra,
-          ),
-        );
+      if (promedio && promedio.promedioCompra > 0) {
+        setTasaCompra(String(promedio.promedioCompra));
       } else {
-        setTasaCompra('');
+        setTasaCompra("");
       }
 
-      setTasaVenta('');
+      setTasaVenta("");
 
       return;
     }
@@ -392,8 +280,8 @@ export function OperacionForm({
      * CLIENTE -> CUENTA  = COMPRA
      * CLIENTE -> CLIENTE = DIRECTA
      */
-    setTasaCompra('');
-    setTasaVenta('');
+    setTasaCompra("");
+    setTasaVenta("");
   }
 
   /**
@@ -402,18 +290,13 @@ export function OperacionForm({
    * ==========================================
    */
 
-  function handleDestinoChange(
-    value: string,
-  ) {
+  function handleDestinoChange(value: string) {
     setDestinoValue(value);
-    setErrorMessage('');
+    setErrorMessage("");
 
-    const destino =
-      entidades.find(
-        (item) =>
-          `${item.tipo}:${item.id}` ===
-          value,
-      );
+    const destino = entidades.find(
+      (item) => `${item.tipo}:${item.id}` === value
+    );
 
     if (!destino) {
       return;
@@ -426,12 +309,8 @@ export function OperacionForm({
      * La moneda queda determinada por
      * la cuenta operativa que recibe.
      */
-    if (
-      destino.tipo === 'CUENTA'
-    ) {
-      setMoneda(
-        destino.moneda,
-      );
+    if (destino.tipo === "CUENTA") {
+      setMoneda(destino.moneda);
     }
   }
 
@@ -441,25 +320,19 @@ export function OperacionForm({
    * ==========================================
    */
 
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setErrorMessage('');
+    setErrorMessage("");
 
     if (!selectedOrigen) {
-      setErrorMessage(
-        'Seleccione un origen/proveedor.',
-      );
+      setErrorMessage("Seleccione un origen/proveedor.");
 
       return;
     }
 
     if (!selectedDestino) {
-      setErrorMessage(
-        'Seleccione un destino.',
-      );
+      setErrorMessage("Seleccione un destino.");
 
       return;
     }
@@ -468,14 +341,9 @@ export function OperacionForm({
      * CUENTA -> CUENTA no corresponde
      * al módulo operaciones.
      */
-    if (
-      selectedOrigen.tipo ===
-        'CUENTA' &&
-      selectedDestino.tipo ===
-        'CUENTA'
-    ) {
+    if (selectedOrigen.tipo === "CUENTA" && selectedDestino.tipo === "CUENTA") {
       setErrorMessage(
-        'Para movimientos entre cuentas propias utiliza el módulo de traslados.',
+        "Para movimientos entre cuentas propias utiliza el módulo de traslados."
       );
 
       return;
@@ -485,28 +353,17 @@ export function OperacionForm({
      * No tiene sentido cliente -> mismo cliente.
      */
     if (
-      selectedOrigen.tipo ===
-        'CLIENTE' &&
-      selectedDestino.tipo ===
-        'CLIENTE' &&
-      selectedOrigen.id ===
-        selectedDestino.id
+      selectedOrigen.tipo === "CLIENTE" &&
+      selectedDestino.tipo === "CLIENTE" &&
+      selectedOrigen.id === selectedDestino.id
     ) {
-      setErrorMessage(
-        'El origen y el cliente destino no pueden ser el mismo.',
-      );
+      setErrorMessage("El origen y el cliente destino no pueden ser el mismo.");
 
       return;
     }
 
-    if (
-      parseFormattedNumber(
-        montoTransaccion,
-      ) <= 0
-    ) {
-      setErrorMessage(
-        'Ingrese un monto válido.',
-      );
+    if (parseFormattedNumber(montoTransaccion) <= 0) {
+      setErrorMessage("Ingrese un monto válido.");
 
       return;
     }
@@ -514,12 +371,8 @@ export function OperacionForm({
     /**
      * TC siempre requerida.
      */
-    if (
-      Number(tasaCompra) <= 0
-    ) {
-      setErrorMessage(
-        'Ingrese una tasa de compra válida.',
-      );
+    if (Number(tasaCompra) <= 0) {
+      setErrorMessage("Ingrese una tasa de compra válida.");
 
       return;
     }
@@ -530,31 +383,21 @@ export function OperacionForm({
      *
      * COMPRA usa TC como TV interna.
      */
-    if (
-      operationMode !==
-        'COMPRA' &&
-      Number(tasaVenta) <= 0
-    ) {
-      setErrorMessage(
-        'Ingrese una tasa de venta válida.',
-      );
+    if (operationMode !== "COMPRA" && Number(tasaVenta) <= 0) {
+      setErrorMessage("Ingrese una tasa de venta válida.");
 
       return;
     }
 
-    if (
-      saldoInsuficiente
-    ) {
-      setErrorMessage(
-        'Saldo insuficiente en la cuenta operativa.',
-      );
+    if (saldoInsuficiente) {
+      setErrorMessage("Saldo insuficiente en la cuenta operativa.");
 
       return;
     }
 
     if (!operationMode) {
       setErrorMessage(
-        'La combinación seleccionada no corresponde a una operación válida.',
+        "La combinación seleccionada no corresponde a una operación válida."
       );
 
       return;
@@ -573,43 +416,30 @@ export function OperacionForm({
        * =====================================
        */
       if (
-        operationMode === 'VENTA' &&
-        selectedOrigen.tipo ===
-          'CUENTA' &&
-        selectedDestino.tipo ===
-          'CLIENTE'
+        operationMode === "VENTA" &&
+        selectedOrigen.tipo === "CUENTA" &&
+        selectedDestino.tipo === "CLIENTE"
       ) {
         payload = {
-          tipo: 'VENTA',
+          tipo: "VENTA",
 
-          nombre:
-            `Venta a ${selectedDestino.nombre}`,
+          nombre: `Venta a ${selectedDestino.nombre}`,
 
-          deudorId:
-            selectedDestino.id,
+          deudorId: selectedDestino.id,
 
-          cuentaOperativaId:
-            selectedOrigen.id,
+          cuentaOperativaId: selectedOrigen.id,
 
-          monedaTransaccion:
-            selectedOrigen.moneda,
+          monedaTransaccion: selectedOrigen.moneda,
 
-          montoTransaccion:
-            parseFormattedNumber(
-              montoTransaccion,
-            ),
+          montoTransaccion: parseFormattedNumber(montoTransaccion),
 
-          tasaCompra:
-            Number(tasaCompra),
+          tasaCompra: Number(tasaCompra),
 
-          tasaVenta:
-            Number(tasaVenta),
+          tasaVenta: Number(tasaVenta),
 
-          destinatario:
-            selectedDestino.nombre,
+          destinatario: selectedDestino.nombre,
 
-          notas:
-            nota || undefined,
+          notas: nota || undefined,
         };
       }
 
@@ -621,38 +451,28 @@ export function OperacionForm({
        * =====================================
        */
       if (
-        operationMode === 'COMPRA' &&
-        selectedOrigen.tipo ===
-          'CLIENTE' &&
-        selectedDestino.tipo ===
-          'CUENTA'
+        operationMode === "COMPRA" &&
+        selectedOrigen.tipo === "CLIENTE" &&
+        selectedDestino.tipo === "CUENTA"
       ) {
         payload = {
-          tipo: 'COMPRA',
+          tipo: "COMPRA",
 
-          nombre:
-            `Compra a ${selectedOrigen.nombre}`,
+          nombre: `Compra a ${selectedOrigen.nombre}`,
 
           /**
            * El proveedor/origen es
            * quien nosotros quedamos debiendo.
            */
-          acreedorId:
-            selectedOrigen.id,
+          acreedorId: selectedOrigen.id,
 
-          cuentaOperativaId:
-            selectedDestino.id,
+          cuentaOperativaId: selectedDestino.id,
 
-          monedaTransaccion:
-            selectedDestino.moneda,
+          monedaTransaccion: selectedDestino.moneda,
 
-          montoTransaccion:
-            parseFormattedNumber(
-              montoTransaccion,
-            ),
+          montoTransaccion: parseFormattedNumber(montoTransaccion),
 
-          tasaCompra:
-            Number(tasaCompra),
+          tasaCompra: Number(tasaCompra),
 
           /**
            * El backend la exige.
@@ -660,14 +480,11 @@ export function OperacionForm({
            * Para compra no tiene significado,
            * así que usamos TC.
            */
-          tasaVenta:
-            tasaVentaEfectiva,
+          tasaVenta: tasaVentaEfectiva,
 
-          destinatario:
-            selectedDestino.nombre,
+          destinatario: selectedDestino.nombre,
 
-          notas:
-            nota || undefined,
+          notas: nota || undefined,
         };
       }
 
@@ -679,77 +496,55 @@ export function OperacionForm({
        * =====================================
        */
       if (
-        operationMode ===
-          'DIRECTA' &&
-        selectedOrigen.tipo ===
-          'CLIENTE' &&
-        selectedDestino.tipo ===
-          'CLIENTE'
+        operationMode === "DIRECTA" &&
+        selectedOrigen.tipo === "CLIENTE" &&
+        selectedDestino.tipo === "CLIENTE"
       ) {
         payload = {
-          tipo:
-            'OPERACION_DIRECTA',
+          tipo: "OPERACION_DIRECTA",
 
-          nombre:
-            `Operación directa ${selectedOrigen.nombre} a ${selectedDestino.nombre}`,
+          nombre: `Operación directa ${selectedOrigen.nombre} a ${selectedDestino.nombre}`,
 
-          acreedorId:
-            selectedOrigen.id,
+          acreedorId: selectedOrigen.id,
 
-          deudorId:
-            selectedDestino.id,
+          deudorId: selectedDestino.id,
 
-          monedaTransaccion:
-            moneda,
+          monedaTransaccion: moneda,
 
-          montoTransaccion:
-            parseFormattedNumber(
-              montoTransaccion,
-            ),
+          montoTransaccion: parseFormattedNumber(montoTransaccion),
 
-          tasaCompra:
-            Number(tasaCompra),
+          tasaCompra: Number(tasaCompra),
 
-          tasaVenta:
-            Number(tasaVenta),
+          tasaVenta: Number(tasaVenta),
 
-          destinatario:
-            selectedDestino.nombre,
+          destinatario: selectedDestino.nombre,
 
-          notas:
-            nota || undefined,
+          notas: nota || undefined,
         };
       }
 
       if (!payload) {
-        throw new Error(
-          'No fue posible determinar la operación.',
-        );
+        throw new Error("No fue posible determinar la operación.");
       }
 
-      await api.post(
-        '/operaciones',
-        payload,
-      );
+      await api.post("/operaciones", payload);
 
       /**
        * LIMPIAR
        */
-      setOrigenValue('');
-      setDestinoValue('');
-      setMoneda('BS');
-      setMontoTransaccion('');
-      setTasaCompra('');
-      setTasaVenta('');
-      setNota('');
+      setOrigenValue("");
+      setDestinoValue("");
+      setMoneda("BS");
+      setMontoTransaccion("");
+      setTasaCompra("");
+      setTasaVenta("");
+      setNota("");
 
       router.refresh();
     } catch (error) {
       console.error(error);
 
-      setErrorMessage(
-        'No fue posible registrar la operación.',
-      );
+      setErrorMessage("No fue posible registrar la operación.");
     } finally {
       setSaving(false);
     }
@@ -766,25 +561,17 @@ export function OperacionForm({
       {/* HEADER */}
       <div className="mb-6 flex justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">
-            Operaciones
-          </h1>
+          <h1 className="text-xl font-bold text-gray-900">Operaciones</h1>
 
           <p className="text-sm text-gray-500">
-            Registra compras, ventas y
-            operaciones directas.
+            Registra compras, ventas y operaciones directas.
           </p>
         </div>
 
-        {operationMode ===
-          'VENTA' &&
-          selectedOrigen?.tipo ===
-            'CUENTA' && (
-            <PromedioCuenta
-              promedioCompra={
-                promedioCuentaSeleccionada
-              }
-            />
+        {operationMode === "VENTA" &&
+          selectedOrigen?.tipo === "CUENTA" &&
+          promedioCuentaSeleccionada && (
+            <PromedioCuenta promedioCompra={promedioCuentaSeleccionada} />
           )}
       </div>
 
@@ -800,31 +587,24 @@ export function OperacionForm({
         <div className="mb-4 flex">
           <span
             className={[
-              'rounded-full px-3 py-1 text-xs font-bold',
-              operationMode ===
-              'COMPRA'
-                ? 'bg-green-50 text-green-700'
-                : operationMode ===
-                    'VENTA'
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'bg-purple-50 text-purple-700',
-            ].join(' ')}
+              "rounded-full px-3 py-1 text-xs font-bold",
+              operationMode === "COMPRA"
+                ? "bg-green-50 text-green-700"
+                : operationMode === "VENTA"
+                ? "bg-blue-50 text-blue-700"
+                : "bg-purple-50 text-purple-700",
+            ].join(" ")}
           >
-            {operationMode ===
-            'COMPRA'
-              ? 'COMPRA'
-              : operationMode ===
-                  'VENTA'
-                ? 'VENTA'
-                : 'OPERACIÓN DIRECTA'}
+            {operationMode === "COMPRA"
+              ? "COMPRA"
+              : operationMode === "VENTA"
+              ? "VENTA"
+              : "OPERACIÓN DIRECTA"}
           </span>
         </div>
       )}
 
-      <form
-        onSubmit={handleSubmit}
-        className="grid gap-4 lg:grid-cols-12"
-      >
+      <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-12">
         {/* =============================
             ORIGEN
         ============================== */}
@@ -836,43 +616,24 @@ export function OperacionForm({
 
           <select
             value={origenValue}
-            onChange={(event) =>
-              handleOrigenChange(
-                event.target.value,
-              )
-            }
+            onChange={(event) => handleOrigenChange(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">
-              Seleccione origen
-            </option>
+            <option value="">Seleccione origen</option>
 
             <optgroup label="Mis cuentas operativas">
               {entidades
-                .filter(
-                  (item) =>
-                    item.tipo ===
-                    'CUENTA',
-                )
+                .filter((item) => item.tipo === "CUENTA")
                 .map((item) => (
-                  <option
-                    key={`CUENTA:${item.id}`}
-                    value={`CUENTA:${item.id}`}
-                  >
-                    {item.nombre} -{' '}
-                    {formatNumber(item.saldo)}{' '}
-                    {item.moneda}
+                  <option key={`CUENTA:${item.id}`} value={`CUENTA:${item.id}`}>
+                    {item.nombre} - {formatNumber(item.saldo)} {item.moneda}
                   </option>
                 ))}
             </optgroup>
 
             <optgroup label="Clientes / proveedores">
               {entidades
-                .filter(
-                  (item) =>
-                    item.tipo ===
-                    'CLIENTE',
-                )
+                .filter((item) => item.tipo === "CLIENTE")
                 .map((item) => (
                   <option
                     key={`CLIENTE:${item.id}`}
@@ -891,42 +652,28 @@ export function OperacionForm({
 
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
-            {selectedOrigen?.tipo ===
-            'CLIENTE'
-              ? 'Cliente / cuenta destino'
-              : 'Cliente'}
+            {selectedOrigen?.tipo === "CLIENTE"
+              ? "Cliente / cuenta destino"
+              : "Cliente"}
           </label>
 
           <select
             value={destinoValue}
-            onChange={(event) =>
-              handleDestinoChange(
-                event.target.value,
-              )
-            }
+            onChange={(event) => handleDestinoChange(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="">
-              Seleccione destino
-            </option>
+            <option value="">Seleccione destino</option>
 
             {/* CLIENTES */}
             <optgroup label="Clientes">
               {clientes
-                .filter(
-                  (cliente) =>
-                    cliente.estado ===
-                    'ACTIVO',
-                )
+                .filter((cliente) => cliente.estado === "ACTIVO")
                 .filter(
                   (cliente) =>
                     !(
-                      selectedOrigen
-                        ?.tipo ===
-                        'CLIENTE' &&
-                      selectedOrigen.id ===
-                        cliente.id
-                    ),
+                      selectedOrigen?.tipo === "CLIENTE" &&
+                      selectedOrigen.id === cliente.id
+                    )
                 )
                 .map((cliente) => (
                   <option
@@ -946,24 +693,20 @@ export function OperacionForm({
              *
              * CLIENTE -> CUENTA = COMPRA
              */}
-            {selectedOrigen?.tipo ===
-              'CLIENTE' && (
+            {selectedOrigen?.tipo === "CLIENTE" && (
               <optgroup label="Mis cuentas operativas">
                 {cuentas
                   .filter(
                     (cuenta) =>
-                      cuenta.estado ===
-                        'ACTIVO' &&
-                      cuenta.categoria ===
-                        'OPERATIVA',
+                      cuenta.estado === "ACTIVO" &&
+                      cuenta.categoria === "OPERATIVA"
                   )
                   .map((cuenta) => (
                     <option
                       key={`CUENTA:${cuenta.id}`}
                       value={`CUENTA:${cuenta.id}`}
                     >
-                      {cuenta.nombre} ·{' '}
-                      {cuenta.moneda}
+                      {cuenta.nombre} · {cuenta.moneda}
                     </option>
                   ))}
               </optgroup>
@@ -975,11 +718,7 @@ export function OperacionForm({
         <div className="flex items-end lg:col-span-1">
           <button
             type="button"
-            onClick={() =>
-              setOpenClienteModal(
-                true,
-              )
-            }
+            onClick={() => setOpenClienteModal(true)}
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:cursor-pointer hover:shadow-lg hover:shadow-blue-500/40"
           >
             <FiUserPlus className="h-4 w-4" />
@@ -997,43 +736,22 @@ export function OperacionForm({
 
           <select
             value={
-              operationMode ===
-                'VENTA' &&
-              selectedOrigen?.tipo ===
-                'CUENTA'
+              operationMode === "VENTA" && selectedOrigen?.tipo === "CUENTA"
                 ? selectedOrigen.moneda
-                : operationMode ===
-                      'COMPRA' &&
-                    selectedDestino?.tipo ===
-                      'CUENTA'
-                  ? selectedDestino.moneda
-                  : moneda
+                : operationMode === "COMPRA" &&
+                  selectedDestino?.tipo === "CUENTA"
+                ? selectedDestino.moneda
+                : moneda
             }
-            disabled={
-              operationMode ===
-                'VENTA' ||
-              operationMode ===
-                'COMPRA'
-            }
-            onChange={(event) =>
-              setMoneda(
-                event.target
-                  .value as Moneda,
-              )
-            }
+            disabled={operationMode === "VENTA" || operationMode === "COMPRA"}
+            onChange={(event) => setMoneda(event.target.value as Moneda)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="BS">
-              BS
-            </option>
+            <option value="BS">BS</option>
 
-            <option value="USD">
-              USD
-            </option>
+            <option value="USD">USD</option>
 
-            <option value="USDT">
-              USDT
-            </option>
+            <option value="USDT">USDT</option>
           </select>
         </div>
 
@@ -1048,11 +766,7 @@ export function OperacionForm({
 
           <FormattedNumberInput
             value={montoTransaccion}
-            onChange={(value) =>
-              setMontoTransaccion(
-                value,
-              )
-            }
+            onChange={(value) => setMontoTransaccion(value)}
             placeholder="0"
           />
         </div>
@@ -1070,11 +784,7 @@ export function OperacionForm({
             type="number"
             step="0.0001"
             value={tasaCompra}
-            onChange={(event) =>
-              setTasaCompra(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setTasaCompra(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="0"
           />
@@ -1091,9 +801,7 @@ export function OperacionForm({
 
           <input
             readOnly
-            value={formatMoney(
-              preview.totalCompraCop,
-            )}
+            value={formatMoney(preview.totalCompraCop)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
           />
         </div>
@@ -1109,8 +817,7 @@ export function OperacionForm({
          * - Total Venta
          * - Utilidad
          */}
-        {operationMode !==
-          'COMPRA' && (
+        {operationMode !== "COMPRA" && (
           <>
             {/* TASA VENTA */}
             <div className="lg:col-span-3">
@@ -1122,11 +829,7 @@ export function OperacionForm({
                 type="number"
                 step="0.0001"
                 value={tasaVenta}
-                onChange={(event) =>
-                  setTasaVenta(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setTasaVenta(event.target.value)}
                 className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 placeholder="0"
               />
@@ -1140,9 +843,7 @@ export function OperacionForm({
 
               <input
                 readOnly
-                value={formatMoney(
-                  preview.totalVentaCop,
-                )}
+                value={formatMoney(preview.totalVentaCop)}
                 className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
               />
             </div>
@@ -1155,9 +856,7 @@ export function OperacionForm({
 
               <input
                 readOnly
-                value={formatMoney(
-                  preview.utilidadCop,
-                )}
+                value={formatMoney(preview.utilidadCop)}
                 className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
               />
             </div>
@@ -1170,10 +869,7 @@ export function OperacionForm({
 
         <div
           className={
-            operationMode ===
-            'COMPRA'
-              ? 'lg:col-span-6'
-              : 'lg:col-span-6'
+            operationMode === "COMPRA" ? "lg:col-span-6" : "lg:col-span-6"
           }
         >
           <label className="mb-1 block text-sm font-semibold text-gray-700">
@@ -1182,11 +878,7 @@ export function OperacionForm({
 
           <input
             value={nota}
-            onChange={(event) =>
-              setNota(
-                event.target.value,
-              )
-            }
+            onChange={(event) => setNota(event.target.value)}
             className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
             placeholder="Nota de la operación"
           />
@@ -1205,17 +897,14 @@ export function OperacionForm({
             <FiPlus className="h-4 w-4" />
 
             {saving
-              ? 'Guardando...'
-              : operationMode ===
-                    'COMPRA'
-                ? 'Registrar compra'
-                : operationMode ===
-                      'VENTA'
-                  ? 'Registrar venta'
-                  : operationMode ===
-                        'DIRECTA'
-                    ? 'Registrar directa'
-                    : 'Registrar'}
+              ? "Guardando..."
+              : operationMode === "COMPRA"
+              ? "Registrar compra"
+              : operationMode === "VENTA"
+              ? "Registrar venta"
+              : operationMode === "DIRECTA"
+              ? "Registrar directa"
+              : "Registrar"}
           </button>
         </div>
       </form>
@@ -1223,11 +912,7 @@ export function OperacionForm({
       <ClienteFormModal
         cliente={null}
         open={openClienteModal}
-        onClose={() =>
-          setOpenClienteModal(
-            false,
-          )
-        }
+        onClose={() => setOpenClienteModal(false)}
       />
     </section>
   );

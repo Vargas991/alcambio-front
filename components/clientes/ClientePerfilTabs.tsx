@@ -7,8 +7,8 @@ import { ClienteLedgerTable } from '@/components/clientes/ClienteLedgerTable';
 import { OperacionesFilters } from '@/components/operaciones/OperacionesFilters';
 import { OperacionesTable } from '@/components/operaciones/OperacionesTable';
 import type { ClienteLedgerEntry } from '@/types/clientes';
-import type { Cliente, Cuenta, Operacion } from '@/types/operaciones';
-import { PromedioCompraCuenta } from '@/types/cuentas';
+import type { Cliente, Operacion } from '@/types/operaciones';
+import { Cuenta, PromedioCompraCuenta } from '@/types/cuentas';
 import { ClienteMovimientosTable } from './ClientesMovimientosTable';
 
 type ClientePerfilTabsProps = {
