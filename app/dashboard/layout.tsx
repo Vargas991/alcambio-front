@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { getAuthUserServer } from '@/services/auth.server';
+import { getIdentidadOrganizacionServer } from '@/services/configuracion.server';
 
 export default async function PrivateLayout({
   children,
@@ -10,11 +11,12 @@ export default async function PrivateLayout({
   children: ReactNode;
 }) {
 
-  const user = await getAuthUserServer();
-  console.log("current: ",user);
-  
+ const [user, identidad] = await Promise.all([
+  getAuthUserServer(),
+  getIdentidadOrganizacionServer(),
+]);
   return (
-    <AppShell user={user}>
+    <AppShell user={user} identidad={identidad}>
       {children}
     </AppShell>
   );

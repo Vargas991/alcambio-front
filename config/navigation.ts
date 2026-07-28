@@ -8,6 +8,7 @@ import {
   FiUser,
   FiUsers,
   FiDollarSign,
+  FiSettings,
 } from 'react-icons/fi';
 
 type SidebarItemConfig = {
@@ -62,15 +63,21 @@ export const mainNavigation: SidebarItemConfig[] = [
 ];
 
 export const secondaryNavigation:SidebarItemConfig[] = [
-  {
-    label: 'Perfil',
-    href: '/dashboard/perfil',
-    icon: FiUser,
-  },
+  // {
+  //   label: 'Perfil',
+  //   href: '/dashboard/perfil',
+  //   icon: FiUser,
+  // },
   {
     label: 'Usuarios',
     href: '/dashboard/usuarios',
     icon: FiUsers,
+    roles: ['ADMIN']
+  },
+  {
+    label: 'Configuración',
+    href: '/dashboard/configuracion/organizacion',
+    icon: FiSettings,
     roles: ['ADMIN']
   },
 ];

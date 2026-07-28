@@ -1,13 +1,15 @@
-import { Suspense } from 'react';
-
 import { LoginForm } from '@/components/auth/LoginForm';
+import { getIdentidadOrganizacionServer } from '@/services/configuracion.server';
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const identidad =
+    await getIdentidadOrganizacionServer();
+
   return (
-    <main className="grid min-h-screen place-items-center bg-gray-50 px-4">
-      <Suspense>
-        <LoginForm />
-      </Suspense>
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      <LoginForm
+        identidad={identidad}
+      />
     </main>
   );
 }

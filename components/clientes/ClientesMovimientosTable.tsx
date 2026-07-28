@@ -677,7 +677,7 @@ function EntidadCell({
   if (entidad.tipo === 'CLIENTE') {
     return (
       <Link
-        href={`/clientes/${entidad.id}`}
+        href={`/dashboard/clientes/${entidad.id}`}
         className="text-sm font-medium text-gray-700 transition hover:text-blue-600 hover:underline"
       >
         {entidad.nombre}
@@ -690,7 +690,7 @@ function EntidadCell({
    */
   return (
     <Link
-      href={`/cuentas/${entidad.id}`}
+      href={`/dashboard/cuentas/${entidad.id}`}
       className="text-sm font-medium text-gray-700 transition hover:text-blue-600 hover:underline"
     >
       {entidad.nombre}

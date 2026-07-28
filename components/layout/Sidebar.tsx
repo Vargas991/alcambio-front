@@ -9,6 +9,9 @@ import { SidebarItem } from "../dashboard/SidebarItem";
 import { LogoutButton } from "../dashboard/LogoutButton";
 import { Usuario } from "../../types/usuarios";
 import { AuthUser } from "@/types/auth";
+import { IdentidadOrganizacion } from "@/types/configuracion";
+import Image from "next/image";
+import { api } from '@/lib/api';
 
 type SidebarProps = {
   open?: boolean;
@@ -17,6 +20,7 @@ type SidebarProps = {
   onCollapse?: () => void;
   onExpand?: () => void;
   user: AuthUser;
+  identidad: IdentidadOrganizacion;
 };
 
 export function Sidebar({
@@ -26,7 +30,21 @@ export function Sidebar({
   onCollapse,
   onExpand,
   user,
+  identidad,
 }: SidebarProps) {
+  const apiPublicUrl =
+    process.env.NEXT_PUBLIC_NEST_API_URL?.replace(/\/$/, "") ?? "";
+
+    console.log(apiPublicUrl);
+    
+  const logoUrl = identidad?.logoUrl
+    ? identidad.logoUrl.startsWith("http")
+      ? identidad.logoUrl
+      : `${apiPublicUrl}${identidad.logoUrl}`
+    : null;
+
+    console.log(identidad);
+    
   return (
     <aside
       className={[
@@ -41,10 +59,37 @@ export function Sidebar({
     >
       <div className="relative border-b border-white/20">
         {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-4 px-8 py-6">
-            <h6 className="font-sans text-base font-semibold leading-relaxed tracking-normal text-white">
-              AlCambio
-            </h6>
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-3 border-b border-gray-100 px-5 py-5"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={`Logo de ${identidad?.nombre}`}
+                  width={48}
+                  height={48}
+                  unoptimized
+                  priority
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xl font-bold text-green-700">
+                  {identidad?.nombre.charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate text-base font-bold text-gray-100">
+                {identidad?.nombre}
+              </p>
+
+              <p className="truncate text-xs text-gray-500">
+                Gestión financiera
+              </p>
+            </div>
           </Link>
         )}
 

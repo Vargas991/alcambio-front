@@ -1,5 +1,7 @@
 'use client';
 
+import { AuthUser } from '@/types/auth';
+import Link from 'next/link';
 import {
   FiBell,
   FiMenu,
@@ -12,12 +14,14 @@ type TopbarProps = {
   title: string;
   section?: string;
   onOpenSidebar?: () => void;
+  user: AuthUser;
 };
 
 export function Topbar({
   title,
   section = 'Dashboard',
   onOpenSidebar,
+  user
 }: TopbarProps) {
   return (
     <nav className="block w-full max-w-full rounded-xl bg-transparent px-0 py-1 text-white shadow-none transition-all">
@@ -67,15 +71,17 @@ export function Topbar({
             <FiMenu className="h-6 w-6" />
           </button>
 
+          {/* <Link href="/dashboard/perfil"> */}
           <button
             type="button"
             className="hidden items-center gap-1 rounded-lg px-4 py-3 text-xs font-bold uppercase text-gray-500 hover:bg-gray-500/10 active:bg-gray-500/30 xl:flex"
           >
             <FiUser className="h-5 w-5" />
-            Admin
+            {user?.nombre}
           </button>
+            {/* </Link> */}
 
-          <button
+          {/* <button
             type="button"
             className="grid h-10 w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-500/10 active:bg-gray-500/30"
           >
@@ -87,7 +93,7 @@ export function Topbar({
             className="grid h-10 w-10 place-items-center rounded-lg text-gray-500 hover:bg-gray-500/10 active:bg-gray-500/30"
           >
             <FiBell className="h-5 w-5" />
-          </button>
+          </button> */}
         </div>
       </div>
     </nav>

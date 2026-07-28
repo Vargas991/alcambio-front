@@ -8,10 +8,12 @@ import { Footer } from './Footer';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { AuthUser } from '@/types/auth';
+import { IdentidadOrganizacion } from '@/types/configuracion';
 
 type AppShellProps = {
   children: ReactNode;
   user: AuthUser;
+  identidad: IdentidadOrganizacion;
 };
 
 const pageTitles: Record<string, { title: string; section: string }> = {
@@ -83,7 +85,7 @@ function getPageInfo(pathname: string) {
   };
 }
 
-export function AppShell({ children, user }: AppShellProps) {
+export function AppShell({ children, user, identidad }: AppShellProps) {
   const pathname = usePathname();
 
   // Mobile
@@ -128,6 +130,7 @@ export function AppShell({ children, user }: AppShellProps) {
         onCollapse={handleCollapseSidebar}
         onExpand={handleExpandSidebar}
         user={user}
+        identidad={identidad}
       />
 
       {sidebarOpen && (
@@ -149,6 +152,7 @@ export function AppShell({ children, user }: AppShellProps) {
           title={pageInfo.title}
           section={pageInfo.section}
           onOpenSidebar={handleOpenSidebar}
+          user={user}
         />
 
         <main className="mt-12">{children}</main>

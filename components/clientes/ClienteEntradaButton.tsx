@@ -35,7 +35,7 @@ export function ClienteEntradaButton({
         open={open}
         clientes={clientes}
         cuentas={cuentas}
-        initialDeudorId={clienteId}
+        // initialDeudorId={clienteId}
         onClose={() => setOpen(false)}
       />
     </>
