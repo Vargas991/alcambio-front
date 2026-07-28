@@ -166,7 +166,7 @@ export function DashboardResumen({
       {/* =====================================
           CAPITAL PRINCIPAL
       ====================================== */}
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <ResumenCard
           title="Disponible en COP"
           value={formatMoney(
@@ -184,6 +184,16 @@ export function DashboardResumen({
             capital.inventarioDivisasCop,
           )}
           description="Valorizado al promedio de compra"
+          icon={
+            <FiDollarSign className="h-5 w-5" />
+          }
+        />
+        <ResumenCard
+          title="Cartera Neta"
+          value={formatMoney(
+            capital.cartera?.balanceNetoCop,
+          )}
+          description="Valor de Cartera Neta"
           icon={
             <FiDollarSign className="h-5 w-5" />
           }

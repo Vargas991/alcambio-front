@@ -62,13 +62,26 @@ export type DashboardMovimiento = {
   creadoEn: string;
 };
 
+export type DashboardCartera = {
+  totalDebitosCop: number;
+  totalCreditosCop: number;
+  balanceNetoCop: number;
+};
+
 export type DashboardResumen = {
   fecha: string;
 
   capital: {
     disponibleCop: number;
     inventarioDivisasCop: number;
+
+    // nuevo
+    balanceNetoCarteraCop: number;
+
     capitalOperativoCop: number;
+
+    // nuevo
+    cartera: DashboardCartera;
 
     resumen: {
       cantidadCuentasBase: number;
