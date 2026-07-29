@@ -111,7 +111,9 @@ export function CuentasTable({
                 </td>
               </tr>
             ) : (
-              cuentas.map((cuenta) => (
+              cuentas
+              .filter((cuenta)=>cuenta.estado ==="ACTIVO")
+              .map((cuenta) => (
                 <tr
                   key={cuenta.id}
                   className="border-b border-gray-100 transition hover:bg-gray-50"
