@@ -21,9 +21,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AlCambio',
+  title: 'Sitema de Gestion',
   description:
-    'Panel de gestión de AlCambio',
+    'Panel de gestión personal',
 };
 
 export const viewport: Viewport = {
