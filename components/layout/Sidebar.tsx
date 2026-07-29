@@ -66,7 +66,7 @@ export function Sidebar({
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50">
               {logoUrl ? (
                 <Image
-                  src={logoUrl}
+                  src="/api/organizacion/logo"
                   alt={`Logo de ${identidad?.nombre}`}
                   width={48}
                   height={48}

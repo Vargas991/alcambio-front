@@ -2,7 +2,6 @@ import 'server-only';
 
 import { cookies } from 'next/headers';
 
-import type { ApiResponse } from '@/types/operaciones';
 import type { AuthUser } from '@/types/auth';
 
 const API_URL =
@@ -52,13 +51,61 @@ async function serverApiGet<T>(
  * Backend:
  * GET /api/auth/me
  */
-export async function getAuthUserServer(): Promise<AuthUser> {
-  const response =
-    await serverApiGet<ApiResponse<AuthUser>>(
-      '/auth/me',
-    );
 
-  return response.data;
+
+export async function getAuthUserServer(): Promise<AuthUser | null> {
+  if (!API_URL) {
+    throw new Error(
+      'NEST_API_URL no está configurada.',
+    );
+  }
+
+  const cookieStore =
+    await cookies();
+
+  const accessToken =
+    cookieStore.get(
+      'accessToken',
+    )?.value;
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${API_URL}/auth/me`,
+    {
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    },
+  );
+
+  if (
+    response.status === 401 ||
+    response.status === 403
+  ) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const json =
+      await response
+        .json()
+        .catch(() => null);
+
+    throw new Error(
+      json?.message ??
+        'Error consultando el backend.',
+    );
+  }
+
+  const json =
+    await response.json();
+
+  return json.data ?? json;
 }
 
 /**

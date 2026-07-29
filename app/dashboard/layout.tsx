@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { getAuthUserServer } from '@/services/auth.server';
 import { getIdentidadOrganizacionServer } from '@/services/configuracion.server';
+import { redirect } from 'next/navigation';
 
 export default async function PrivateLayout({
   children,
@@ -15,6 +16,12 @@ export default async function PrivateLayout({
   getAuthUserServer(),
   getIdentidadOrganizacionServer(),
 ]);
+
+if (!user) {
+    redirect(
+      '/login?callbackUrl=/dashboard',
+    );
+  }
   return (
     <AppShell user={user} identidad={identidad}>
       {children}

@@ -93,12 +93,12 @@ export function LoginForm({
           {logoUrl ? (
             <div className="relative h-full w-full">
               <Image
-                src={logoUrl}
+                src="/api/organizacion/logo"
                 alt={`Logo de ${identidad.nombre}`}
                 fill
                 unoptimized
                 priority
-                sizes="160px"
+                sizes="128px"
                 className="object-contain"
               />
             </div>
