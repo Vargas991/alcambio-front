@@ -434,7 +434,7 @@ export function OrganizacionForm({
             <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
               {currentLogoUrl ? (
                 <Image
-                  src={currentLogoUrl}
+                  src="/api/organizacion/logo"
                   alt={`Logo de ${form.nombre}`}
                   width={144}
                   height={144}
