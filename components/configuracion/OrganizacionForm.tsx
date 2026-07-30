@@ -1,32 +1,17 @@
-'use client';
+"use client";
 
-import Image from 'next/image';
+import Image from "next/image";
 
-import {
-  ChangeEvent,
-  FormEvent,
-  useMemo,
-  useState,
-} from 'react';
+import { ChangeEvent, FormEvent, useMemo, useState } from "react";
 
-import {
-  FiImage,
-  FiSave,
-  FiTrash2,
-  FiUpload,
-} from 'react-icons/fi';
+import { FiImage, FiSave, FiTrash2, FiUpload } from "react-icons/fi";
 
-import {
-  useRouter,
-} from 'next/navigation';
+import { useRouter } from "next/navigation";
 
-import type {
-  ConfiguracionOrganizacion,
-} from '@/types/configuracion';
+import type { ConfiguracionOrganizacion } from "@/types/configuracion";
 
 type OrganizacionFormProps = {
-  configuracion:
-    ConfiguracionOrganizacion;
+  configuracion: ConfiguracionOrganizacion;
 };
 
 type FormState = {
@@ -34,116 +19,69 @@ type FormState = {
   telefono: string;
   correo: string;
   direccion: string;
-  monedaBase:
-    ConfiguracionOrganizacion['monedaBase'];
+  monedaBase: ConfiguracionOrganizacion["monedaBase"];
   zonaHoraria: string;
 };
 
-const API_PUBLIC_URL =
-  process.env
-    .NEXT_PUBLIC_NEST_API_URL ??
-  '';
+const API_PUBLIC_URL = process.env.NEXT_PUBLIC_NEST_API_URL ?? "";
 
-export function OrganizacionForm({
-  configuracion,
-}: OrganizacionFormProps) {
-  const router =
-    useRouter();
+export function OrganizacionForm({ configuracion }: OrganizacionFormProps) {
+  const router = useRouter();
 
-  const [form, setForm] =
-    useState<FormState>({
-      nombre:
-        configuracion.nombre,
+  const [logoUrl, setLogoUrl] = useState<string | null>(configuracion.logoUrl);
 
-      telefono:
-        configuracion.telefono ??
-        '',
+  const [logoVersion, setLogoVersion] = useState(() => Date.now());
 
-      correo:
-        configuracion.correo ??
-        '',
+  const [form, setForm] = useState<FormState>({
+    nombre: configuracion.nombre,
 
-      direccion:
-        configuracion.direccion ??
-        '',
+    telefono: configuracion.telefono ?? "",
 
-      monedaBase:
-        configuracion.monedaBase,
+    correo: configuracion.correo ?? "",
 
-      zonaHoraria:
-        configuracion.zonaHoraria,
-    });
+    direccion: configuracion.direccion ?? "",
 
-  const [
-    selectedLogo,
-    setSelectedLogo,
-  ] = useState<File | null>(
-    null,
-  );
+    monedaBase: configuracion.monedaBase,
 
-  const [
-    previewUrl,
-    setPreviewUrl,
-  ] = useState<string | null>(
-    null,
-  );
+    zonaHoraria: configuracion.zonaHoraria,
+  });
 
-  const [
-    saving,
-    setSaving,
-  ] = useState(false);
+  const [selectedLogo, setSelectedLogo] = useState<File | null>(null);
 
-  const [
-    uploadingLogo,
-    setUploadingLogo,
-  ] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const [
-    deletingLogo,
-    setDeletingLogo,
-  ] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
-  const [
-    successMessage,
-    setSuccessMessage,
-  ] = useState('');
+  const [deletingLogo, setDeletingLogo] = useState(false);
 
-  const currentLogoUrl =
-    useMemo(() => {
-      if (previewUrl) {
-        return previewUrl;
-      }
+  const [errorMessage, setErrorMessage] = useState("");
 
-      if (
-        !configuracion.logoUrl
-      ) {
-        return null;
-      }
+  const [successMessage, setSuccessMessage] = useState("");
 
-      if (
-        configuracion.logoUrl.startsWith(
-          'http',
-        )
-      ) {
-        return configuracion.logoUrl;
-      }
+  const currentLogoUrl = useMemo(() => {
+    if (previewUrl) {
+      return previewUrl;
+    }
 
-      return `${API_PUBLIC_URL}${configuracion.logoUrl}`;
-    }, [
-      configuracion.logoUrl,
-      previewUrl,
-    ]);
+    if (!logoUrl) {
+      return null;
+    }
 
-  function updateField<
-    K extends keyof FormState,
-  >(
+    /*
+     * Usamos el proxy de Next para evitar
+     * contenido mixto HTTP/HTTPS.
+     *
+     * logoVersion invalida la caché cuando
+     * el logo cambia.
+     */
+    return `/api/organizacion/logo?v=${logoVersion}`;
+  }, [logoUrl, logoVersion, previewUrl]);
+
+  function updateField<K extends keyof FormState>(
     field: K,
-    value: FormState[K],
+    value: FormState[K]
   ) {
     setForm((current) => ({
       ...current,
@@ -151,126 +89,85 @@ export function OrganizacionForm({
     }));
   }
 
-  function handleLogoChange(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const file =
-      event.target.files?.[0];
+  function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
-    const allowedTypes = [
-      'image/png',
-      'image/jpeg',
-      'image/webp',
-    ];
+    const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
 
-    if (
-      !allowedTypes.includes(
-        file.type,
-      )
-    ) {
-      setErrorMessage(
-        'El logo debe ser PNG, JPG o WEBP.',
-      );
+    if (!allowedTypes.includes(file.type)) {
+      setErrorMessage("El logo debe ser PNG, JPG o WEBP.");
 
       return;
     }
 
-    if (
-      file.size >
-      2 * 1024 * 1024
-    ) {
-      setErrorMessage(
-        'El logo no puede superar los 2 MB.',
-      );
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage("El logo no puede superar los 2 MB.");
 
       return;
     }
 
     if (previewUrl) {
-      URL.revokeObjectURL(
-        previewUrl,
-      );
+      URL.revokeObjectURL(previewUrl);
     }
 
     setSelectedLogo(file);
 
-    setPreviewUrl(
-      URL.createObjectURL(file),
-    );
+    setPreviewUrl(URL.createObjectURL(file));
 
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setSaving(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      const response = await fetch(
-        '/api/backend/configuracion/organizacion',
-        {
-          method: 'PATCH',
+      const response = await fetch("/api/backend/configuracion/organizacion", {
+        method: "PATCH",
 
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-
-          body: JSON.stringify({
-            nombre:
-              form.nombre.trim(),
-
-            telefono:
-              form.telefono.trim() ||
-              null,
-
-            correo:
-              form.correo.trim() ||
-              null,
-
-            direccion:
-              form.direccion.trim() ||
-              null,
-
-            monedaBase:
-              form.monedaBase,
-
-            zonaHoraria:
-              form.zonaHoraria,
-          }),
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
 
-      const data =
-        await response.json();
+        body: JSON.stringify({
+          nombre: form.nombre.trim(),
+
+          telefono: form.telefono.trim() || null,
+
+          correo: form.correo.trim() || null,
+
+          direccion: form.direccion.trim() || null,
+
+          monedaBase: form.monedaBase,
+
+          zonaHoraria: form.zonaHoraria,
+        }),
+      });
+
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ??
-            'No fue posible actualizar la configuración.',
+          data.message ?? "No fue posible actualizar la configuración."
         );
       }
 
-      setSuccessMessage(
-        'Configuración actualizada correctamente.',
-      );
+      setSuccessMessage("Configuración actualizada correctamente.");
 
       router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'No fue posible actualizar la configuración.',
+          : "No fue posible actualizar la configuración."
       );
     } finally {
       setSaving(false);
@@ -279,64 +176,56 @@ export function OrganizacionForm({
 
   async function handleUploadLogo() {
     if (!selectedLogo) {
-      setErrorMessage(
-        'Selecciona un logo.',
-      );
+      setErrorMessage("Selecciona un logo.");
 
       return;
     }
 
     setUploadingLogo(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      const body =
-        new FormData();
+      const body = new FormData();
 
-      body.append(
-        'logo',
-        selectedLogo,
-      );
+      body.append("logo", selectedLogo);
 
       const response = await fetch(
-        '/api/backend/configuracion/organizacion/logo',
+        "/api/backend/configuracion/organizacion/logo",
         {
-          method: 'POST',
+          method: "POST",
           body,
-        },
+        }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message ??
-            'No fue posible actualizar el logo.',
-        );
+        throw new Error(data.message ?? "No fue posible actualizar el logo.");
       }
+
+      const nuevaConfiguracion = data.data ?? data;
+
+      setLogoUrl(nuevaConfiguracion.logoUrl);
+
+      setLogoVersion(Date.now());
 
       setSelectedLogo(null);
 
       if (previewUrl) {
-        URL.revokeObjectURL(
-          previewUrl,
-        );
+        URL.revokeObjectURL(previewUrl);
       }
 
       setPreviewUrl(null);
 
-      setSuccessMessage(
-        'Logo actualizado correctamente.',
-      );
+      setSuccessMessage("Logo actualizado correctamente.");
 
       router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'No fue posible actualizar el logo.',
+          : "No fue posible actualizar el logo."
       );
     } finally {
       setUploadingLogo(false);
@@ -344,57 +233,49 @@ export function OrganizacionForm({
   }
 
   async function handleDeleteLogo() {
-    const confirmed =
-      window.confirm(
-        '¿Deseas eliminar el logo de la organización?',
-      );
+    const confirmed = window.confirm(
+      "¿Deseas eliminar el logo de la organización?"
+    );
 
     if (!confirmed) {
       return;
     }
 
     setDeletingLogo(true);
-    setErrorMessage('');
-    setSuccessMessage('');
+    setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       const response = await fetch(
-        '/api/backend/configuracion/organizacion/logo',
+        "/api/backend/configuracion/organizacion/logo",
         {
-          method: 'DELETE',
-        },
+          method: "DELETE",
+        }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message ??
-            'No fue posible eliminar el logo.',
-        );
+        throw new Error(data.message ?? "No fue posible eliminar el logo.");
       }
 
+      setLogoUrl(null);
+      setLogoVersion(Date.now());
       setSelectedLogo(null);
 
       if (previewUrl) {
-        URL.revokeObjectURL(
-          previewUrl,
-        );
+        URL.revokeObjectURL(previewUrl);
       }
 
       setPreviewUrl(null);
 
-      setSuccessMessage(
-        'Logo eliminado correctamente.',
-      );
-
+      setSuccessMessage("Logo eliminado correctamente.");
       router.refresh();
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'No fue posible eliminar el logo.',
+          : "No fue posible eliminar el logo."
       );
     } finally {
       setDeletingLogo(false);
@@ -402,10 +283,7 @@ export function OrganizacionForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-6"
-    >
+    <form onSubmit={handleSubmit} className="space-y-6">
       {errorMessage && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
@@ -434,7 +312,7 @@ export function OrganizacionForm({
             <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
               {currentLogoUrl ? (
                 <Image
-                  src="/api/organizacion/logo"
+                  src={currentLogoUrl}
                   alt={`Logo de ${form.nombre}`}
                   width={144}
                   height={144}
@@ -460,9 +338,7 @@ export function OrganizacionForm({
                 id="logo"
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={
-                  handleLogoChange
-                }
+                onChange={handleLogoChange}
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-gray-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gray-700 hover:file:bg-gray-200"
               />
 
@@ -474,38 +350,25 @@ export function OrganizacionForm({
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={
-                  handleUploadLogo
-                }
-                disabled={
-                  !selectedLogo ||
-                  uploadingLogo
-                }
+                onClick={handleUploadLogo}
+                disabled={!selectedLogo || uploadingLogo}
                 className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <FiUpload className="h-4 w-4" />
 
-                {uploadingLogo
-                  ? 'Subiendo...'
-                  : 'Guardar logo'}
+                {uploadingLogo ? "Subiendo..." : "Guardar logo"}
               </button>
 
-              {configuracion.logoUrl && (
+              {logoUrl && (
                 <button
                   type="button"
-                  onClick={
-                    handleDeleteLogo
-                  }
-                  disabled={
-                    deletingLogo
-                  }
+                  onClick={handleDeleteLogo}
+                  disabled={deletingLogo}
                   className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <FiTrash2 className="h-4 w-4" />
 
-                  {deletingLogo
-                    ? 'Eliminando...'
-                    : 'Eliminar logo'}
+                  {deletingLogo ? "Eliminando..." : "Eliminar logo"}
                 </button>
               )}
             </div>
@@ -536,12 +399,7 @@ export function OrganizacionForm({
             <input
               id="nombre"
               value={form.nombre}
-              onChange={(event) =>
-                updateField(
-                  'nombre',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => updateField("nombre", event.target.value)}
               required
               maxLength={150}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
@@ -559,12 +417,7 @@ export function OrganizacionForm({
             <input
               id="telefono"
               value={form.telefono}
-              onChange={(event) =>
-                updateField(
-                  'telefono',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => updateField("telefono", event.target.value)}
               maxLength={30}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
             />
@@ -582,12 +435,7 @@ export function OrganizacionForm({
               id="correo"
               type="email"
               value={form.correo}
-              onChange={(event) =>
-                updateField(
-                  'correo',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => updateField("correo", event.target.value)}
               maxLength={150}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
             />
@@ -604,12 +452,7 @@ export function OrganizacionForm({
             <textarea
               id="direccion"
               value={form.direccion}
-              onChange={(event) =>
-                updateField(
-                  'direccion',
-                  event.target.value,
-                )
-              }
+              onChange={(event) => updateField("direccion", event.target.value)}
               maxLength={250}
               rows={3}
               className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
@@ -687,17 +530,12 @@ export function OrganizacionForm({
         <div className="mt-6 flex justify-end">
           <button
             type="submit"
-            disabled={
-              saving ||
-              !form.nombre.trim()
-            }
+            disabled={saving || !form.nombre.trim()}
             className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <FiSave className="h-4 w-4" />
 
-            {saving
-              ? 'Guardando...'
-              : 'Guardar cambios'}
+            {saving ? "Guardando..." : "Guardar cambios"}
           </button>
         </div>
       </section>

@@ -44,6 +44,13 @@ export function Sidebar({
     : null;
 
     console.log(identidad);
+
+    const logoSrc =
+  identidad.logoUrl
+    ? `/api/organizacion/logo?v=${encodeURIComponent(
+        identidad.logoUrl,
+      )}`
+    : null;
     
   return (
     <aside
@@ -64,9 +71,9 @@ export function Sidebar({
             className="flex items-center gap-3 border-b border-gray-100 px-5 py-5"
           >
             <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50">
-              {logoUrl ? (
+              {logoSrc ? (
                 <Image
-                  src="/api/organizacion/logo"
+                  src={logoSrc}
                   alt={`Logo de ${identidad?.nombre}`}
                   width={48}
                   height={48}

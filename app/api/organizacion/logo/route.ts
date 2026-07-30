@@ -102,7 +102,9 @@ export async function GET() {
           ) ?? 'image/webp',
 
         'Cache-Control':
-          'public, max-age=300',
+          'no-store, no-cache, must-revalidate',
+          Pragma: 'no-cache',
+      Expires: '0',
       },
     },
   );

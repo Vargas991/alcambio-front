@@ -83,6 +83,13 @@ export function LoginForm({
     }
   }
 
+  const logoSrc =
+  identidad.logoUrl
+    ? `/api/organizacion/logo?v=${encodeURIComponent(
+        identidad.logoUrl,
+      )}`
+    : null;
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -90,10 +97,10 @@ export function LoginForm({
     >
       <div className="mb-8 text-center">
         <div className="mx-auto mb-4 flex h-24 w-40 items-center justify-center overflow-hidden rounded-xl bg-gray-50">
-          {logoUrl ? (
+          {logoSrc ? (
             <div className="relative h-full w-full">
               <Image
-                src="/api/organizacion/logo"
+                src={logoSrc}
                 alt={`Logo de ${identidad.nombre}`}
                 fill
                 unoptimized
