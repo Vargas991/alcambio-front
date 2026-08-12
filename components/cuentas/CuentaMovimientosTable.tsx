@@ -1,3 +1,5 @@
+
+'use client';
 import { formatDate, formatMoney, formatNumber } from '@/lib/formatters';
 import type { MovimientoCuenta } from '@/services/cuentas.server';
 import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
