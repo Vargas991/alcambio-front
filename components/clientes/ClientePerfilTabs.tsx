@@ -1,70 +1,88 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
-import { ClienteLedgerFilters } from '@/components/clientes/ClienteLedgerFilters';
-import { ClienteLedgerTable } from '@/components/clientes/ClienteLedgerTable';
-import { OperacionesFilters } from '@/components/operaciones/OperacionesFilters';
-import { OperacionesTable } from '@/components/operaciones/OperacionesTable';
-import type { ClienteLedgerEntry } from '@/types/clientes';
-import type { Cliente, Operacion } from '@/types/operaciones';
-import { Cuenta, PromedioCompraCuenta } from '@/types/cuentas';
-import { ClienteMovimientosTable } from './ClientesMovimientosTable';
+import { ClienteLedgerFilters } from "@/components/clientes/ClienteLedgerFilters";
+import { ClienteBalancesPorMoneda } from "@/components/clientes/ClienteBalancesPorMoneda";
+import { ClienteMovimientosMultimonedaTable } from "@/components/clientes/ClienteMovimientosMultimonedaTable";
+import type { ClienteLedgerEntry } from "@/types/clientes";
+import type { Cliente, Operacion } from "@/types/operaciones";
+import type {
+  Cuenta,
+  PromedioCompraCuenta,
+} from "@/types/cuentas";
+
+import { ClienteMovimientosTable } from "./ClientesMovimientosTable";
 
 type ClientePerfilTabsProps = {
-  operaciones: Operacion[];
+  clienteId: string;
+  operaciones?: Operacion[];
   movimientos: ClienteLedgerEntry[];
   promedios?: PromedioCompraCuenta[];
   cuentas: Cuenta[];
   clientes: Cliente[];
+  endpointAjusteSaldo?: string;
 };
 
+type Tab = "operaciones" | "estadoCuenta";
+
 export function ClientePerfilTabs({
-  operaciones,
+  clienteId,
   movimientos,
   promedios,
   cuentas,
-  clientes
+  clientes,
+  endpointAjusteSaldo,
 }: ClientePerfilTabsProps) {
-  const [activeTab, setActiveTab] = useState<'operaciones' | 'estadoCuenta'>(
-    'operaciones',
-  );
+  const [activeTab, setActiveTab] =
+    useState<Tab>("operaciones");
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-xl bg-white p-2 shadow-md">
-        <div className="grid grid-cols-2 gap-2">
+    <section className="space-y-6">
+      
+
+          <ClienteLedgerFilters />
+
+
+      <div className="overflow-hidden rounded-xl bg-white shadow-md">
+        <div
+          className="flex gap-6 overflow-x-auto border-b border-gray-100 px-6 pt-4"
+          role="tablist"
+        >
           <button
             type="button"
-            onClick={() => setActiveTab('operaciones')}
+            role="tab"
+            aria-selected={activeTab === "operaciones"}
+            onClick={() => setActiveTab("operaciones")}
             className={[
-              'rounded-lg px-4 py-3 text-sm font-semibold transition',
-              activeTab === 'operaciones'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-50',
-            ].join(' ')}
+              "border-b-2 px-1 pb-3 text-sm font-semibold transition-colors",
+              activeTab === "operaciones"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800",
+            ].join(" ")}
           >
             Solo operaciones
           </button>
 
           <button
             type="button"
-            onClick={() => setActiveTab('estadoCuenta')}
+            role="tab"
+            aria-selected={activeTab === "estadoCuenta"}
+            onClick={() => setActiveTab("estadoCuenta")}
             className={[
-              'rounded-lg px-4 py-3 text-sm font-semibold transition',
-              activeTab === 'estadoCuenta'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-gray-600 hover:bg-gray-50',
-            ].join(' ')}
+              "border-b-2 px-1 pb-3 text-sm font-semibold transition-colors",
+              activeTab === "estadoCuenta"
+                ? "border-blue-600 text-blue-700"
+                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800",
+            ].join(" ")}
           >
             Estado de cuenta
           </button>
         </div>
       </div>
 
-      {activeTab === 'operaciones' ? (
+      {activeTab === "operaciones" ? (
         <div className="space-y-4">
-          <ClienteLedgerFilters />
 
           <ClienteMovimientosTable
             movimientos={movimientos}
@@ -75,12 +93,11 @@ export function ClientePerfilTabs({
         </div>
       ) : (
         <div className="space-y-4">
-          <ClienteLedgerFilters />
 
-          <ClienteLedgerTable
+          <ClienteMovimientosMultimonedaTable
             movimientos={movimientos}
             title="Estado de cuenta del cliente"
-            description="Historial completo: operaciones, entradas, salidas, pagos, abonos y cancelaciones."
+            description="Historial multimoneda con saldo acumulado independiente para BS, USD, USDT y COP."
           />
         </div>
       )}

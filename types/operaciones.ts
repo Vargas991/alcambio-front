@@ -1,6 +1,6 @@
-export type TipoOperacion = 'COMPRA' | 'VENTA' | 'OPERACION_DIRECTA';
-export type EstadoOperacion = 'REGISTRADA' | 'CANCELADA';
-export type Moneda = 'COP' | 'BS' | 'USD' | 'USDT';
+export type TipoOperacion = "COMPRA" | "VENTA" | "OPERACION_DIRECTA";
+export type EstadoOperacion = "REGISTRADA" | "CANCELADA";
+export type Moneda = "COP" | "BS" | "USD" | "USDT";
 
 export type ClienteResumen = {
   id: string;
@@ -10,13 +10,11 @@ export type ClienteResumen = {
   estado?: string;
 };
 
-
-
 export type CuentaOperativa = {
   id: string;
   nombre: string;
   moneda: Moneda;
-  categoria: 'BASE_COP' | 'OPERATIVA' | string;
+  categoria: "BASE_COP" | "OPERATIVA" | string;
   tipo: string;
   saldo: string;
   estado: string;
@@ -63,6 +61,13 @@ export type Operacion = {
   acreedor: ClienteResumen | null;
   cuentaOperativa: CuentaOperativa | null;
   movimientosCliente: MovimientoCliente[];
+  metodoCalculo: "TASA" | "PORCENTAJE";
+  porcentaje: number | string | null;
+  aplicacionPorcentaje: "SUMAR" | "DESCONTAR" | null;
+  montoComision: number | string | null;
+  montoResultado: number | string | null;
+  monedaDeuda: Moneda;
+  montoDeuda: number | string | null;
 };
 
 export type Cliente = {
@@ -77,7 +82,7 @@ export type Cuenta = {
   id: string;
   nombre: string;
   moneda: Moneda;
-  categoria: 'BASE_COP' | 'OPERATIVA' | string;
+  categoria: "BASE_COP" | "OPERATIVA" | string;
   tipo: string;
   saldo: string;
   estado: string;
@@ -91,14 +96,14 @@ export type ApiResponse<T> = {
 
 export type OrigenOperacion =
   | {
-      tipo: 'CUENTA';
+      tipo: "CUENTA";
       id: string;
       nombre: string;
       moneda: Moneda;
       saldo: string;
     }
   | {
-      tipo: 'CLIENTE';
+      tipo: "CLIENTE";
       id: string;
       nombre: string;
     };

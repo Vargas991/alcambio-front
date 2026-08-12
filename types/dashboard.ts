@@ -1,56 +1,92 @@
-export type DashboardCuentaBase = {
-  id: string;
-  nombre: string;
-  moneda: string;
-  tipo: string;
-  saldo: number;
-  aplica4x1000: boolean;
+export type DashboardMoneda =
+  | 'COP'
+  | 'BS'
+  | 'USD'
+  | 'USDT';
+
+export type DashboardCajaDia = {
+  saldoInicial: number;
+  entradas: number;
+  salidas: number;
+  variacion: number;
+  saldoFinal: number;
 };
 
-export type DashboardCuentaOperativa = {
+export type DashboardCarteraMoneda = {
+  moneda: DashboardMoneda;
+  porCobrar: number;
+  porPagar: number;
+  balanceNeto: number;
+};
+
+export type DashboardUtilidadMoneda = {
+  moneda: DashboardMoneda;
+  utilidad: number;
+};
+
+export type DashboardResumenMoneda = {
+  moneda: DashboardMoneda;
+
+  saldoCuentas: number;
+
+  cartera: {
+    porCobrar: number;
+    porPagar: number;
+    balanceNeto: number;
+  };
+
+  cajaDia: DashboardCajaDia;
+
+  utilidadGenerada: number;
+
+  cantidadCuentas: number;
+  cantidadMovimientos: number;
+};
+
+export type DashboardCuenta = {
   id: string;
   nombre: string;
-  moneda: string;
+  moneda: DashboardMoneda;
+
+  categoria: string;
+  tipo: string;
+
+  aplica4x1000: boolean;
 
   saldoActual: number;
-  saldoCalculado: number;
-  diferenciaSaldo: number;
-
-  promedioCompra: number;
-  tasaMinimaVenta: number;
-
-  costoInventarioCalculadoCop: number;
-  valorActualCop: number;
-
-  totalOperacionesAnalizadas: number;
-};
-
-export type DashboardCuentaCaja = {
-  id: string;
-  nombre: string;
-  moneda: string;
-  tipo: string;
-  aplica4x1000: boolean;
 
   saldoInicial: number;
   entradas: number;
   salidas: number;
   variacion: number;
   saldoFinal: number;
-  saldoActual: number;
+
+  utilidadGenerada: number;
 
   cantidadMovimientos: number;
 };
 
 export type DashboardMovimiento = {
   id: string;
-  cuentaId: string;
-  tipo: string;
-  descripcion: string | null;
-  referenciaTipo: string | null;
-  referenciaId: string | null;
 
-  moneda: string;
+  cuentaId: string;
+
+  tipo: string;
+
+  descripcion:
+    | string
+    | null;
+
+  referenciaTipo:
+    | string
+    | null;
+
+  referenciaId:
+    | string
+    | null;
+
+  moneda: DashboardMoneda;
+
   monto: number;
 
   entrada: number;
@@ -62,50 +98,26 @@ export type DashboardMovimiento = {
   creadoEn: string;
 };
 
-export type DashboardCartera = {
-  totalDebitosCop: number;
-  totalCreditosCop: number;
-  balanceNetoCop: number;
-};
-
 export type DashboardResumen = {
   fecha: string;
 
-  capital: {
-    disponibleCop: number;
-    inventarioDivisasCop: number;
+  monedasDisponibles:
+    DashboardMoneda[];
 
-    // nuevo
-    balanceNetoCarteraCop: number;
+  resumenPorMoneda:
+    DashboardResumenMoneda[];
 
-    capitalOperativoCop: number;
+  cuentas:
+    DashboardCuenta[];
 
-    // nuevo
-    cartera: DashboardCartera;
+  utilidadPorMoneda:
+    DashboardUtilidadMoneda[];
 
-    resumen: {
-      cantidadCuentasBase: number;
-      cantidadCuentasOperativas: number;
-    };
+  carteraPorMoneda:
+    DashboardCarteraMoneda[];
 
-    cuentasBase: DashboardCuentaBase[];
-
-    cuentasOperativas: DashboardCuentaOperativa[];
-  };
-
-  caja: {
-    resumen: {
-      saldoInicial: number;
-      entradas: number;
-      salidas: number;
-      variacion: number;
-      saldoFinal: number;
-    };
-
-    cuentas: DashboardCuentaCaja[];
-
-    movimientos: DashboardMovimiento[];
-  };
+  movimientos:
+    DashboardMovimiento[];
 
   generadoEn: string;
 };

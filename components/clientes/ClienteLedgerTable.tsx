@@ -4,6 +4,8 @@ import {
   formatNumber,
 } from '@/lib/formatters';
 
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
+
 import type { ClienteLedgerEntry } from '@/types/clientes';
 
 type ClienteLedgerTableProps = {
@@ -14,8 +16,9 @@ type ClienteLedgerTableProps = {
 
 function getDisplayDate(
   entry: ClienteLedgerEntry,
+  zonaHoraria: string,
 ) {
-  return formatDate(entry.creadoEn);
+  return formatDate(entry.creadoEn, zonaHoraria);
 }
 
 function getDisplayMovement(
@@ -354,6 +357,8 @@ export function ClienteLedgerTable({
   title = 'Movimientos del cliente',
   description = 'Historial completo de operaciones, abonos, pagos, abonos directos y cancelaciones.',
 }: ClienteLedgerTableProps) {
+  const { zonaHoraria } = useOrganizacion();
+
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
       <div className="border-b border-gray-100 p-6">
@@ -427,6 +432,7 @@ export function ClienteLedgerTable({
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {getDisplayDate(
                         entry,
+                        zonaHoraria,
                       )}
                     </td>
 

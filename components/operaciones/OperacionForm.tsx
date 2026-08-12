@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FiPlus, FiUserPlus } from "react-icons/fi";
 
 import { api } from "@/lib/api";
-import { formatMoney, formatNumber } from "@/lib/formatters";
+import { formatNumber } from "@/lib/formatters";
 import { parseFormattedNumber } from "@/lib/number-format";
 
 import type {
@@ -18,7 +18,6 @@ import type {
 import type { PromedioCompraCuenta } from "@/types/cuentas";
 
 import { FormattedNumberInput } from "../ui/FormattedNumberInput";
-import PromedioCuenta from "../cuentas/PromedioCuenta";
 import { ClienteFormModal } from "../clientes/ClienteFormModal";
 
 type OperacionFormProps = {
@@ -28,6 +27,27 @@ type OperacionFormProps = {
 };
 
 type TipoEntidadOperacion = OrigenOperacion;
+
+type MetodoCalculoOperacion = "TASA" | "PORCENTAJE";
+type AplicacionPorcentaje = "SUMAR" | "DESCONTAR";
+
+type OperacionPayload = {
+  tipo: "VENTA" | "COMPRA" | "OPERACION_DIRECTA";
+  nombre: string;
+  deudorId?: string;
+  acreedorId?: string;
+  cuentaOperativaId?: string;
+  monedaTransaccion: Moneda;
+  montoTransaccion: number;
+  metodoCalculo: MetodoCalculoOperacion;
+  tasaCompra?: number;
+  tasaVenta?: number;
+  porcentaje?: number;
+  aplicacionPorcentaje?: AplicacionPorcentaje;
+  monedaDeuda: Moneda;
+  destinatario?: string;
+  notas?: string;
+};
 
 function roundCop(value: number) {
   return Math.round(value);
@@ -51,26 +71,59 @@ export function OperacionForm({
    * - cliente
    * - cuenta operativa
    */
+  /**
+   * ==========================================
+   * MONEDAS DISPONIBLES
+   * ==========================================
+   *
+   * Solo se permiten monedas que tengan al menos
+   * una cuenta ACTIVA creada en el sistema.
+   */
+  
   const [origenValue, setOrigenValue] = useState("");
-
+  
   const [destinoValue, setDestinoValue] = useState("");
 
-  const [moneda, setMoneda] = useState<Moneda>("BS");
-
+  
+  const [metodoCalculo, setMetodoCalculo] =
+  useState<MetodoCalculoOperacion>("TASA");
+  const [porcentaje, setPorcentaje] = useState("");
+  const [aplicacionPorcentaje, setAplicacionPorcentaje] =
+  useState<AplicacionPorcentaje>("SUMAR");
+  
   const [montoTransaccion, setMontoTransaccion] = useState("");
-
+  
   const [tasaCompra, setTasaCompra] = useState("");
-
+  
   const [tasaVenta, setTasaVenta] = useState("");
-
+  
   const [nota, setNota] = useState("");
 
   const [saving, setSaving] = useState(false);
-
+  
   const [errorMessage, setErrorMessage] = useState("");
-
+  
   const [openClienteModal, setOpenClienteModal] = useState(false);
-
+  
+  
+  const monedasDisponibles = useMemo<Moneda[]>(() => {
+    return Array.from(
+      new Set(
+        cuentas
+        .filter(
+          (cuenta) =>
+            cuenta.estado === 'ACTIVO',
+        )
+        .map(
+          (cuenta) =>
+            cuenta.moneda,
+        ),
+      ),
+    );
+  }, [cuentas]);
+  const monedaInicial = monedasDisponibles[0] ?? "COP";
+  const [moneda, setMoneda] = useState<Moneda>(monedaInicial);
+  const [monedaDeuda, setMonedaDeuda] = useState<Moneda>(monedaInicial);
   /**
    * ==========================================
    * ENTIDADES DISPONIBLES
@@ -181,6 +234,51 @@ export function OperacionForm({
     return null;
   }, [selectedOrigen, selectedDestino]);
 
+  const monedaTransaccion = useMemo<Moneda>(() => {
+    if (operationMode === "VENTA" && selectedOrigen?.tipo === "CUENTA") {
+      return selectedOrigen.moneda;
+    }
+
+    if (operationMode === "COMPRA" && selectedDestino?.tipo === "CUENTA") {
+      return selectedDestino.moneda;
+    }
+
+    return moneda;
+  }, [operationMode, selectedOrigen, selectedDestino, moneda]);
+
+  useEffect(() => {
+    if (operationMode !== "VENTA" && metodoCalculo === "PORCENTAJE") {
+      setMetodoCalculo("TASA");
+      setPorcentaje("");
+      setAplicacionPorcentaje("SUMAR");
+    }
+  }, [operationMode, metodoCalculo]);
+
+  useEffect(() => {
+    if (metodoCalculo === "PORCENTAJE") {
+      setMonedaDeuda(monedaTransaccion);
+    }
+  }, [metodoCalculo, monedaTransaccion]);
+
+  /**
+   * Si cambia la lista de cuentas activas y una
+   * moneda deja de estar disponible, movemos el
+   * formulario automáticamente a una moneda válida.
+   */
+  useEffect(() => {
+    if (monedasDisponibles.length === 0) {
+      return;
+    }
+
+    if (!monedasDisponibles.includes(moneda)) {
+      setMoneda(monedasDisponibles[0]);
+    }
+
+    if (!monedasDisponibles.includes(monedaDeuda)) {
+      setMonedaDeuda(monedasDisponibles[0]);
+    }
+  }, [monedasDisponibles, moneda, monedaDeuda]);
+
   /**
    * ==========================================
    * PREVIEW
@@ -188,47 +286,60 @@ export function OperacionForm({
    */
 
   const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
+  const tasaCompraNumber = Number(tasaCompra || 0);
+  const tasaVentaNumber = Number(tasaVenta || 0);
+  const porcentajeNumber = Number(porcentaje || 0);
 
-  /**
-   * En compra la tasa de venta no tiene
-   * significado comercial.
-   *
-   * Como backend la exige, internamente
-   * usamos la misma tasa de compra.
-   */
   const tasaVentaEfectiva =
-    operationMode === "COMPRA"
-      ? Number(tasaCompra || 0)
-      : Number(tasaVenta || 0);
+    operationMode === "COMPRA" ? tasaCompraNumber : tasaVentaNumber;
 
-  const preview = useMemo(() => {
-    const monto = parseFormattedNumber(montoTransaccion) || 0;
-
-    const tc = Number(tasaCompra || 0);
-
-    const tv = operationMode === "COMPRA" ? tc : Number(tasaVenta || 0);
-
-    const totalCompraCop = roundCop(monto * tc);
-
-    const totalVentaCop = roundCop(monto * tv);
-
-    const utilidadCop = totalVentaCop - totalCompraCop;
+  const previewTasa = useMemo(() => {
+    const totalCompra = roundCop(montoNumber * tasaCompraNumber);
+    const totalVenta = roundCop(montoNumber * tasaVentaEfectiva);
+    const utilidad = totalVenta - totalCompra;
 
     return {
-      totalCompraCop,
-      totalVentaCop,
-      utilidadCop,
+      totalCompra,
+      totalVenta,
+      utilidad,
     };
-  }, [montoTransaccion, tasaCompra, tasaVenta, operationMode]);
+  }, [montoNumber, tasaCompraNumber, tasaVentaEfectiva]);
+
+  const previewPorcentaje = useMemo(() => {
+    const montoComision = Number(
+      ((montoNumber * porcentajeNumber) / 100).toFixed(6)
+    );
+
+    const montoEntregado =
+      aplicacionPorcentaje === "DESCONTAR"
+        ? Number((montoNumber - montoComision).toFixed(6))
+        : montoNumber;
+
+    const montoDeuda =
+      aplicacionPorcentaje === "SUMAR"
+        ? Number((montoNumber + montoComision).toFixed(6))
+        : montoNumber;
+
+    return {
+      montoComision,
+      montoEntregado,
+      montoDeuda,
+    };
+  }, [montoNumber, porcentajeNumber, aplicacionPorcentaje]);
 
   /**
    * El saldo solamente se valida cuando
    * vendemos desde una cuenta propia.
    */
+  const montoSalidaCuenta =
+    metodoCalculo === "PORCENTAJE"
+      ? previewPorcentaje.montoEntregado
+      : montoNumber;
+
   const saldoInsuficiente =
     operationMode === "VENTA" &&
     selectedOrigen?.tipo === "CUENTA" &&
-    montoNumber > Number(selectedOrigen.saldo || 0);
+    montoSalidaCuenta > Number(selectedOrigen.saldo || 0);
 
   /**
    * ==========================================
@@ -368,25 +479,59 @@ export function OperacionForm({
       return;
     }
 
-    /**
-     * TC siempre requerida.
-     */
-    if (Number(tasaCompra) <= 0) {
-      setErrorMessage("Ingrese una tasa de compra válida.");
-
+    if (!operationMode) {
+      setErrorMessage(
+        "La combinación seleccionada no corresponde a una operación válida."
+      );
       return;
     }
 
-    /**
-     * TV solamente debe solicitarse
-     * visualmente en VENTA y DIRECTA.
-     *
-     * COMPRA usa TC como TV interna.
-     */
-    if (operationMode !== "COMPRA" && Number(tasaVenta) <= 0) {
-      setErrorMessage("Ingrese una tasa de venta válida.");
+    if (metodoCalculo === "TASA") {
+      if (tasaCompraNumber <= 0) {
+        setErrorMessage("Ingrese una tasa de compra válida.");
+        return;
+      }
 
-      return;
+      if (operationMode !== "COMPRA" && tasaVentaNumber <= 0) {
+        setErrorMessage("Ingrese una tasa de venta válida.");
+        return;
+      }
+
+      if (!monedaDeuda) {
+        setErrorMessage("Seleccione la moneda de la deuda.");
+        return;
+      }
+
+      if (!monedasDisponibles.includes(monedaDeuda)) {
+        setErrorMessage(
+          "La moneda de la deuda debe corresponder a una cuenta activa.",
+        );
+        return;
+      }
+    }
+
+    if (metodoCalculo === "PORCENTAJE") {
+      if (operationMode !== "VENTA") {
+        setErrorMessage(
+          "El cálculo por porcentaje solo está disponible para ventas."
+        );
+        return;
+      }
+
+      if (porcentajeNumber <= 0) {
+        setErrorMessage("Ingrese un porcentaje válido.");
+        return;
+      }
+
+      if (
+        aplicacionPorcentaje === "DESCONTAR" &&
+        previewPorcentaje.montoEntregado <= 0
+      ) {
+        setErrorMessage(
+          "El porcentaje descontado no puede dejar el resultado en cero o negativo."
+        );
+        return;
+      }
     }
 
     if (saldoInsuficiente) {
@@ -395,18 +540,25 @@ export function OperacionForm({
       return;
     }
 
-    if (!operationMode) {
-      setErrorMessage(
-        "La combinación seleccionada no corresponde a una operación válida."
-      );
-
-      return;
-    }
-
     setSaving(true);
 
     try {
-      let payload;
+      let payload: OperacionPayload | null = null;
+
+      const datosCalculo =
+        metodoCalculo === "TASA"
+          ? {
+              metodoCalculo: "TASA" as const,
+              tasaCompra: tasaCompraNumber,
+              tasaVenta: tasaVentaEfectiva,
+              monedaDeuda,
+            }
+          : {
+              metodoCalculo: "PORCENTAJE" as const,
+              porcentaje: porcentajeNumber,
+              aplicacionPorcentaje,
+              monedaDeuda: monedaTransaccion,
+            };
 
       /**
        * =====================================
@@ -431,11 +583,9 @@ export function OperacionForm({
 
           monedaTransaccion: selectedOrigen.moneda,
 
-          montoTransaccion: parseFormattedNumber(montoTransaccion),
+          montoTransaccion: montoNumber,
 
-          tasaCompra: Number(tasaCompra),
-
-          tasaVenta: Number(tasaVenta),
+          ...datosCalculo,
 
           destinatario: selectedDestino.nombre,
 
@@ -470,17 +620,9 @@ export function OperacionForm({
 
           monedaTransaccion: selectedDestino.moneda,
 
-          montoTransaccion: parseFormattedNumber(montoTransaccion),
+          montoTransaccion: montoNumber,
 
-          tasaCompra: Number(tasaCompra),
-
-          /**
-           * El backend la exige.
-           *
-           * Para compra no tiene significado,
-           * así que usamos TC.
-           */
-          tasaVenta: tasaVentaEfectiva,
+          ...datosCalculo,
 
           destinatario: selectedDestino.nombre,
 
@@ -509,13 +651,11 @@ export function OperacionForm({
 
           deudorId: selectedDestino.id,
 
-          monedaTransaccion: moneda,
+          monedaTransaccion,
 
-          montoTransaccion: parseFormattedNumber(montoTransaccion),
+          montoTransaccion: montoNumber,
 
-          tasaCompra: Number(tasaCompra),
-
-          tasaVenta: Number(tasaVenta),
+          ...datosCalculo,
 
           destinatario: selectedDestino.nombre,
 
@@ -534,10 +674,17 @@ export function OperacionForm({
        */
       setOrigenValue("");
       setDestinoValue("");
-      setMoneda("BS");
+
+      const monedaDefault = monedasDisponibles[0] ?? "COP";
+
+      setMoneda(monedaDefault);
+      setMonedaDeuda(monedaDefault);
       setMontoTransaccion("");
+      setMetodoCalculo("TASA");
       setTasaCompra("");
       setTasaVenta("");
+      setPorcentaje("");
+      setAplicacionPorcentaje("SUMAR");
       setNota("");
 
       router.refresh();
@@ -568,17 +715,39 @@ export function OperacionForm({
           </p>
         </div>
 
-        {operationMode === "VENTA" &&
-          selectedOrigen?.tipo === "CUENTA" &&
-          promedioCuentaSeleccionada && (
-            <PromedioCuenta promedioCompra={promedioCuentaSeleccionada} />
-          )}
+        {selectedOrigen?.tipo === "CUENTA" && (
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-right">
+            <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
+              Promedio de compra
+            </p>
+
+            {promedioCuentaSeleccionada &&
+            Number(promedioCuentaSeleccionada.promedioCompra) > 0 ? (
+              <p className="text-lg font-bold text-blue-800">
+                {formatNumber(
+                  Number(promedioCuentaSeleccionada.promedioCompra)
+                )}{" "}
+                COP
+              </p>
+            ) : (
+              <p className="text-sm font-semibold text-amber-700">
+                Sin promedio registrado
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ERROR */}
       {errorMessage && (
         <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
           {errorMessage}
+        </div>
+      )}
+
+      {monedasDisponibles.length === 0 && (
+        <div className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">
+          Debes crear o activar al menos una cuenta para registrar operaciones.
         </div>
       )}
 
@@ -743,15 +912,25 @@ export function OperacionForm({
                 ? selectedDestino.moneda
                 : moneda
             }
-            disabled={operationMode === "VENTA" || operationMode === "COMPRA"}
+            disabled={
+              monedasDisponibles.length === 0 ||
+              operationMode === "VENTA" ||
+              operationMode === "COMPRA"
+            }
             onChange={(event) => setMoneda(event.target.value as Moneda)}
             className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none disabled:bg-gray-50 disabled:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           >
-            <option value="BS">BS</option>
-
-            <option value="USD">USD</option>
-
-            <option value="USDT">USDT</option>
+            {monedasDisponibles.length === 0 ? (
+              <option value="">
+                No hay monedas disponibles
+              </option>
+            ) : (
+              monedasDisponibles.map((monedaItem) => (
+                <option key={monedaItem} value={monedaItem}>
+                  {monedaItem}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
@@ -771,93 +950,257 @@ export function OperacionForm({
           />
         </div>
 
-        {/* =============================
-            TASA COMPRA
-        ============================== */}
-
         <div className="lg:col-span-3">
           <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Tasa Compra
+            Método de cálculo
           </label>
 
-          <input
-            type="number"
-            step="0.0001"
-            value={tasaCompra}
-            onChange={(event) => setTasaCompra(event.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            placeholder="0"
-          />
+          <select
+            value={metodoCalculo}
+            onChange={(event) =>
+              setMetodoCalculo(event.target.value as MetodoCalculoOperacion)
+            }
+            className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          >
+            <option value="TASA">Por tasa</option>
+
+            {operationMode === "VENTA" && (
+              <option value="PORCENTAJE">Por porcentaje</option>
+            )}
+          </select>
         </div>
 
-        {/* =============================
-            TOTAL COMPRA
-        ============================== */}
-
-        <div className="lg:col-span-3">
-          <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Total Compra
-          </label>
-
-          <input
-            readOnly
-            value={formatMoney(preview.totalCompraCop)}
-            className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
-          />
-        </div>
-
-        {/*
-         * =================================
-         * SOLO VENTA / DIRECTA
-         * =================================
-         *
-         * En COMPRA ocultamos:
-         *
-         * - Tasa Venta
-         * - Total Venta
-         * - Utilidad
-         */}
-        {operationMode !== "COMPRA" && (
+        {metodoCalculo === "TASA" ? (
           <>
-            {/* TASA VENTA */}
             <div className="lg:col-span-3">
               <label className="mb-1 block text-sm font-semibold text-gray-700">
-                Tasa Venta
+                Tasa compra
               </label>
 
               <input
                 type="number"
+                min="0"
                 step="0.0001"
-                value={tasaVenta}
-                onChange={(event) => setTasaVenta(event.target.value)}
+                value={tasaCompra}
+                onChange={(event) => setTasaCompra(event.target.value)}
                 className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 placeholder="0"
               />
             </div>
 
-            {/* TOTAL VENTA */}
+            {operationMode !== "COMPRA" && (
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Tasa venta
+                </label>
+
+                <input
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  value={tasaVenta}
+                  onChange={(event) => setTasaVenta(event.target.value)}
+                  className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="0"
+                />
+              </div>
+            )}
+
             <div className="lg:col-span-3">
               <label className="mb-1 block text-sm font-semibold text-gray-700">
-                Total venta
+                Moneda de la deuda
+              </label>
+
+              <select
+                value={monedaDeuda}
+                onChange={(event) =>
+                  setMonedaDeuda(event.target.value as Moneda)
+                }
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              >
+                {monedasDisponibles.length === 0 ? (
+                  <option value="">
+                    No hay monedas disponibles
+                  </option>
+                ) : (
+                  monedasDisponibles.map((monedaItem) => (
+                    <option key={monedaItem} value={monedaItem}>
+                      {monedaItem}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div
+              className={
+                operationMode === "COMPRA" ? "lg:col-span-6" : "lg:col-span-3"
+              }
+            >
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Nota
+              </label>
+
+              <input
+                value={nota}
+                onChange={(event) => setNota(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="Nota de la operación"
+              />
+            </div>
+
+            
+
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Total compra ({monedaDeuda})
               </label>
 
               <input
                 readOnly
-                value={formatMoney(preview.totalVentaCop)}
+                value={`${formatNumber(previewTasa.totalCompra)} ${monedaDeuda}`}
                 className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
               />
             </div>
 
-            {/* UTILIDAD */}
+            {operationMode !== "COMPRA" && (
+              <>
+                <div className="lg:col-span-3">
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Total venta ({monedaDeuda})
+                  </label>
+
+                  <input
+                    readOnly
+                    value={`${formatNumber(previewTasa.totalVenta)} ${monedaDeuda}`}
+                    className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+                  />
+                </div>
+
+                <div className="lg:col-span-3">
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Utilidad estimada ({monedaDeuda})
+                  </label>
+
+                  <input
+                    readOnly
+                    value={`${formatNumber(previewTasa.utilidad)} ${monedaDeuda}`}
+                    className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+                  />
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <>
             <div className="lg:col-span-3">
               <label className="mb-1 block text-sm font-semibold text-gray-700">
-                Utilidad estimada
+                Porcentaje
+              </label>
+
+              <input
+                type="number"
+                min="0.0001"
+                max="100"
+                step="0.0001"
+                value={porcentaje}
+                onChange={(event) => setPorcentaje(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="1.5"
+              />
+            </div>
+
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Aplicación
+              </label>
+
+              <select
+                value={aplicacionPorcentaje}
+                onChange={(event) =>
+                  setAplicacionPorcentaje(
+                    event.target.value as AplicacionPorcentaje
+                  )
+                }
+                className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="SUMAR">Sumar al monto</option>
+                <option value="DESCONTAR">Descontar del monto</option>
+              </select>
+            </div>
+
+            <div
+              className={
+                operationMode === "COMPRA" ? "lg:col-span-6" : "lg:col-span-3"
+              }
+            >
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Nota
+              </label>
+
+              <input
+                value={nota}
+                onChange={(event) => setNota(event.target.value)}
+                className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                placeholder="Nota de la operación"
+              />
+            </div>
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Moneda de la deuda
               </label>
 
               <input
                 readOnly
-                value={formatMoney(preview.utilidadCop)}
-                className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+                value={monedaTransaccion}
+                className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+              />
+            </div>
+
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Comisión
+              </label>
+
+              <input
+                readOnly
+                value={`${formatNumber(
+                  previewPorcentaje.montoComision
+                )} ${monedaTransaccion}`}
+                className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+              />
+            </div>
+
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Monto entregado
+              </label>
+
+              <input
+                readOnly
+                value={`${formatNumber(
+                  previewPorcentaje.montoEntregado
+                )} ${monedaTransaccion}`}
+                className={[
+                  "h-11 w-full rounded-lg border px-3 text-sm font-semibold outline-none",
+                  previewPorcentaje.montoEntregado > 0
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-red-200 bg-red-50 text-red-700",
+                ].join(" ")}
+              />
+            </div>
+
+            <div className="lg:col-span-3">
+              <label className="mb-1 block text-sm font-semibold text-gray-700">
+                Deuda generada
+              </label>
+
+              <input
+                readOnly
+                value={`${formatNumber(
+                  previewPorcentaje.montoDeuda
+                )} ${monedaTransaccion}`}
+                className="h-11 w-full rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
               />
             </div>
           </>
@@ -867,31 +1210,14 @@ export function OperacionForm({
             NOTA
         ============================== */}
 
-        <div
-          className={
-            operationMode === "COMPRA" ? "lg:col-span-6" : "lg:col-span-6"
-          }
-        >
-          <label className="mb-1 block text-sm font-semibold text-gray-700">
-            Nota
-          </label>
-
-          <input
-            value={nota}
-            onChange={(event) => setNota(event.target.value)}
-            className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-            placeholder="Nota de la operación"
-          />
-        </div>
-
         {/* =============================
             SUBMIT
         ============================== */}
 
-        <div className="flex items-end lg:col-span-3">
+        <div className="flex items-end lg:col-span-12">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || monedasDisponibles.length === 0}
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-tr from-green-600 to-blue-400 px-4 text-sm font-bold text-white shadow-md shadow-blue-500/20 transition hover:cursor-pointer hover:shadow-lg hover:shadow-blue-500/40 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <FiPlus className="h-4 w-4" />

@@ -12,9 +12,9 @@ export default async function SalidasPage() {
 
   const cuentasBaseCop = cuentas.filter(
     (cuenta) =>
-      cuenta.estado === 'ACTIVO' &&
-      cuenta.categoria === 'BASE_COP' &&
-      cuenta.moneda === 'COP',
+      cuenta.estado === 'ACTIVO' 
+      // cuenta.categoria === 'BASE_COP' &&
+      // cuenta.moneda === 'COP',
   );
 
   return (

@@ -1,23 +1,25 @@
-import { CarteraSummary } from '@/components/cartera/CarteraSummary';
-import { CarteraTable } from '@/components/cartera/CarteraTable';
+import { CarteraContent } from '@/components/cartera/CarteraContent';
 import { getCarteraServer } from '@/services/clientes.server';
 
 export default async function CarteraPage() {
-  const cartera = await getCarteraServer();
+  const cartera =
+    await getCarteraServer();
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl bg-white p-6 shadow-md">
-        <h1 className="text-xl font-bold text-gray-900">Cartera</h1>
+      <section>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Cartera
+        </h1>
 
         <p className="mt-1 text-sm text-gray-500">
           Consulta saldos pendientes por cobrar y por pagar.
         </p>
       </section>
 
-      <CarteraSummary cartera={cartera} />
-
-      <CarteraTable cartera={cartera} />
+      <CarteraContent
+        cartera={cartera}
+      />
     </div>
   );
 }

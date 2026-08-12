@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { formatDate } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type { ClienteLedgerEntry } from '@/types/clientes';
 import type { Cliente } from '@/types/operaciones';
@@ -35,13 +36,20 @@ type MovimientoNormalizado = {
   moneda: string;
   monto: number;
 
+  metodoCalculo: 'TASA' | 'PORCENTAJE' | null;
+
   tasaCompra: number | null;
-  totalCompraCop: number | null;
+  totalCompra: number | null;
+  monedaTotalCompra: string;
 
   tasaVenta: number | null;
-  totalVentaCop: number | null;
+  totalVenta: number | null;
+  monedaTotalVenta: string;
 
-  utilidadCop: number | null;
+  aplicacionPorcentaje: 'SUMAR' | 'DESCONTAR' | null;
+
+  utilidad: number | null;
+  monedaUtilidad: string;
 
   notas: string | null;
 
@@ -49,22 +57,34 @@ type MovimientoNormalizado = {
   cancelado: boolean;
 };
 
-function formatNumber(value: number) {
-  const [integerPart, decimalPart] = Math.abs(value)
-    .toFixed(2)
-    .split('.');
+function formatNumber(
+  value: number | string | null | undefined,
+) {
+  const numericValue = Number(value ?? 0);
+
+  if (!Number.isFinite(numericValue)) {
+    return '-';
+  }
+
+  const [integerPart = '0', decimalPart = '00'] =
+    Math.abs(numericValue)
+      .toFixed(2)
+      .split('.');
 
   const formattedInteger = integerPart.replace(
     /\B(?=(\d{3})+(?!\d))/g,
     '.',
   );
 
-  const sign = value < 0 ? '-' : '';
+  const sign = numericValue < 0 ? '-' : '';
+
+  const normalizedDecimals =
+    decimalPart.replace(/0+$/, '');
 
   const decimals =
-    decimalPart === '00'
-      ? ''
-      : `,${decimalPart.replace(/0+$/, '')}`;
+    normalizedDecimals.length > 0
+      ? `,${normalizedDecimals}`
+      : '';
 
   return `${sign}${formattedInteger}${decimals}`;
 }
@@ -228,32 +248,68 @@ function getMovimientoData(
         operacion.montoTransaccion,
       ),
 
-      tasaCompra: Number(
-        operacion.tasaCompra,
-      ),
+      metodoCalculo:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? 'PORCENTAJE'
+          : 'TASA',
 
-      totalCompraCop: Number(
-        operacion.totalCompraCop,
-      ),
+      tasaCompra:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? null
+          : Number(operacion.tasaCompra),
+
+      totalCompra:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? Number(operacion.montoResultado ?? 0)
+          : Number(operacion.totalCompraCop),
+
+      monedaTotalCompra:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.monedaTransaccion
+          : 'COP',
 
       tasaVenta:
-        operacion.tipo === 'COMPRA'
-          ? null
-          : Number(operacion.tasaVenta),
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.porcentaje !== null &&
+            operacion.porcentaje !== undefined
+            ? Number(operacion.porcentaje)
+            : null
+          : operacion.tipo === 'COMPRA'
+            ? null
+            : Number(operacion.tasaVenta),
 
-      totalVentaCop:
-        operacion.tipo === 'COMPRA'
-          ? null
-          : Number(
-              operacion.totalVentaCop,
-            ),
+      totalVenta:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.montoDeuda !== null &&
+            operacion.montoDeuda !== undefined
+            ? Number(operacion.montoDeuda)
+            : null
+          : operacion.tipo === 'COMPRA'
+            ? null
+            : Number(operacion.totalVentaCop),
 
-      utilidadCop:
-        operacion.tipo === 'COMPRA'
-          ? null
-          : Number(
-              operacion.utilidadCop,
-            ),
+      monedaTotalVenta:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.monedaDeuda ??
+            operacion.monedaTransaccion
+          : 'COP',
+
+      aplicacionPorcentaje:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.aplicacionPorcentaje ?? null
+          : null,
+
+      utilidad:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? Number(operacion.montoComision ?? 0)
+          : operacion.tipo === 'COMPRA'
+            ? null
+            : Number(operacion.utilidadCop),
+
+      monedaUtilidad:
+        operacion.metodoCalculo === 'PORCENTAJE'
+          ? operacion.monedaTransaccion
+          : 'COP',
 
       notas:
         operacion.notas ?? "-",
@@ -320,36 +376,94 @@ function getMovimientoData(
     }
 
     /**
-     * Monto que REALMENTE afectó
-     * el saldo del cliente.
+     * ========================================
+     * ENTRADA / ABONO MULTIMONEDA
+     * ========================================
      *
-     * Ejemplo:
+     * montoPago + monedaPago:
+     * dinero que realmente entró a la cuenta.
      *
-     * abona 100.000
-     * 4x1000 = 400
-     * movimiento crédito = 99.600
-     *
-     * mostramos COP 99.600
+     * montoAplicado + monedaAplicacion:
+     * monto que realmente redujo la deuda.
      */
-    const debitoCop = Number(
-      movimiento.debitoCop ?? 0,
+    const monedaPago =
+      entrada.monedaPago ??
+      entrada.cuenta?.moneda ??
+      movimiento.monedaTransaccion ??
+      movimiento.moneda ??
+      'COP';
+
+    const monedaAplicacion =
+      entrada.monedaAplicacion ??
+      movimiento.moneda ??
+      'COP';
+
+    const montoPagoEntrada = Number(
+      entrada.montoPago ?? 0,
     );
 
-    const creditoCop = Number(
-      movimiento.creditoCop ?? 0,
+    const montoTransaccion = Number(
+      movimiento.montoTransaccion ?? 0,
+    );
+
+    const montoCopLegado = Number(
+      entrada.montoCop ?? 0,
+    );
+
+    const creditoMovimiento = Number(
+      movimiento.credito ?? 0,
+    );
+
+    const debitoMovimiento = Number(
+      movimiento.debito ?? 0,
+    );
+
+    const montoAplicadoEntrada = Number(
+      entrada.montoAplicado ?? 0,
     );
 
     const montoAplicado =
-      creditoCop > 0
-        ? creditoCop
-        : debitoCop > 0
-          ? debitoCop
-          : Number(
-              entrada.montoCop ?? 0,
-            );
+      montoAplicadoEntrada > 0
+        ? montoAplicadoEntrada
+        : creditoMovimiento > 0
+          ? creditoMovimiento
+          : debitoMovimiento > 0
+            ? debitoMovimiento
+            : Number(
+                entrada.montoAplicadoDeudaCop ?? 0,
+              );
+
+    /**
+     * Evitamos `entrada.montoPago ?? entrada.montoCop`,
+     * porque un montoCop = 0 es un valor válido para ?? y
+     * bloquea los fallbacks multimoneda.
+     */
+    const montoPago =
+      montoPagoEntrada > 0
+        ? montoPagoEntrada
+        : montoTransaccion > 0
+          ? montoTransaccion
+          : montoCopLegado > 0
+            ? montoCopLegado
+            : monedaPago === monedaAplicacion &&
+                montoAplicado > 0
+              ? montoAplicado
+              : 0;
+
+    const tasaConversion =
+      entrada.tasaConversion !== null &&
+      entrada.tasaConversion !== undefined
+        ? Number(entrada.tasaConversion)
+        : null;
 
     const cancelado =
       entrada.estado === 'CANCELADA';
+
+    const tieneConversion =
+      monedaPago !== monedaAplicacion &&
+      tasaConversion !== null &&
+      Number.isFinite(tasaConversion) &&
+      tasaConversion > 0;
 
     return {
       fecha:
@@ -361,17 +475,44 @@ function getMovimientoData(
       origen,
       destino,
 
-      moneda: 'COP',
+      /**
+       * Monto físico recibido.
+       */
+      moneda: monedaPago,
+      monto: montoPago,
 
-      monto: montoAplicado,
+      metodoCalculo: null,
 
-      tasaCompra: null,
-      totalCompraCop: null,
+      /**
+       * Reutilizamos TC / Total compra para
+       * representar el abono multimoneda:
+       *
+       * TC = tasa de conversión registrada.
+       * Total compra = monto aplicado a la deuda.
+       */
+      tasaCompra:
+        tieneConversion
+          ? tasaConversion
+          : null,
+
+      totalCompra:
+        montoAplicado > 0
+          ? montoAplicado
+          : null,
+
+      monedaTotalCompra:
+        monedaAplicacion,
 
       tasaVenta: null,
-      totalVentaCop: null,
+      totalVenta: null,
+      monedaTotalVenta:
+        monedaAplicacion,
 
-      utilidadCop: null,
+      aplicacionPorcentaje: null,
+
+      utilidad: null,
+      monedaUtilidad:
+        monedaAplicacion,
 
       notas:
         entrada.notas ??
@@ -461,13 +602,23 @@ function getMovimientoData(
 
       monto: montoAplicado,
 
+      metodoCalculo: null,
+
       tasaCompra: null,
-      totalCompraCop: null,
+      totalCompra: null,
+      monedaTotalCompra:
+        movimiento.moneda ?? 'COP',
 
       tasaVenta: null,
-      totalVentaCop: null,
+      totalVenta: null,
+      monedaTotalVenta:
+        movimiento.moneda ?? 'COP',
 
-      utilidadCop: null,
+      aplicacionPorcentaje: null,
+
+      utilidad: null,
+      monedaUtilidad:
+        movimiento.moneda ?? 'COP',
 
       notas:
         salida.notas ??
@@ -533,35 +684,47 @@ function getMovimientoData(
   }
 
   return {
-    fecha: movimiento.creadoEn,
+  fecha: movimiento.creadoEn,
 
-    tipo: movimiento.tipo,
+  tipo: movimiento.tipo,
 
-    origen: entidadVacia(),
-    destino: entidadVacia(),
+  origen: entidadVacia(),
+  destino: entidadVacia(),
 
-    moneda: 'COP',
+  moneda:
+    movimiento.moneda ?? 'COP',
 
-    monto: montoMovimientoCop,
+  monto: montoMovimientoCop,
 
-    tasaCompra: null,
-    totalCompraCop: null,
+  /**
+   * No es una operación.
+   */
+  metodoCalculo: null,
 
-    tasaVenta: null,
-    totalVentaCop: null,
+  tasaCompra: null,
+  totalCompra: null,
+  monedaTotalCompra:
+    movimiento.moneda ?? 'COP',
 
-    utilidadCop: null,
+  tasaVenta: null,
+  totalVenta: null,
+  monedaTotalVenta:
+    movimiento.moneda ?? 'COP',
 
-    notas:
-      movimiento.descripcion ??
-      null,
+  aplicacionPorcentaje: null,
 
-    editable: false,
+  utilidad: null,
+  monedaUtilidad:
+    movimiento.moneda ?? 'COP',
 
-    cancelado:
-      movimiento.tipo ===
-      'CANCELACION',
-  };
+  notas:
+    movimiento.descripcion ?? null,
+
+  editable: false,
+
+  cancelado:
+    movimiento.tipo === 'CANCELACION',
+};
 }
 
 function TipoBadge({
@@ -652,6 +815,37 @@ function TipoBadge({
   );
 }
 
+
+function MetodoBadge({
+  metodo,
+}: {
+  metodo: 'TASA' | 'PORCENTAJE' | null;
+}) {
+  if (!metodo) {
+    return (
+      <span className="text-xs text-gray-400">
+        -
+      </span>
+    );
+  }
+
+  const className =
+    metodo === 'TASA'
+      ? 'bg-blue-50 text-blue-700 ring-blue-600/20'
+      : 'bg-violet-50 text-violet-700 ring-violet-600/20';
+
+  return (
+    <span
+      className={[
+        'inline-flex whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset',
+        className,
+      ].join(' ')}
+    >
+      {metodo === 'TASA' ? 'Tasa' : 'Porcentaje'}
+    </span>
+  );
+}
+
 /**
  * Celda reutilizable para cliente/cuenta.
  */
@@ -706,6 +900,8 @@ export function ClienteMovimientosTable({
   title = 'Movimientos del cliente',
   description = 'Operaciones, entradas, salidas, pagos, abonos y ajustes asociados al cliente.',
 }: ClienteMovimientosTableProps) {
+  const { zonaHoraria } = useOrganizacion();
+
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
       <div className="border-b border-gray-100 p-6">
@@ -742,6 +938,10 @@ export function ClienteMovimientosTable({
                 Monto
               </th>
 
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-400">
+                Método
+              </th>
+
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-gray-400">
                 TC
               </th>
@@ -776,7 +976,7 @@ export function ClienteMovimientosTable({
             {movimientos.length === 0 ? (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={13}
                   className="px-6 py-10 text-center text-sm text-gray-500"
                 >
                   No hay movimientos registrados.
@@ -805,6 +1005,7 @@ export function ClienteMovimientosTable({
                       <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
                         {formatDate(
                           item.fecha,
+                          zonaHoraria,
                         )}
                       </td>
 
@@ -859,6 +1060,13 @@ export function ClienteMovimientosTable({
                         )}
                       </td>
 
+                      {/* MÉTODO */}
+                      <td className="px-4 py-4">
+                        <MetodoBadge
+                          metodo={item.metodoCalculo}
+                        />
+                      </td>
+
                       {/* TC */}
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm text-gray-700">
                         {item.tasaCompra !==
@@ -869,43 +1077,50 @@ export function ClienteMovimientosTable({
                           : '-'}
                       </td>
 
-                      {/* TOTAL COMPRA */}
+                      {/* TOTAL COMPRA / MONTO ENVIADO */}
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm font-semibold text-gray-700">
-                        {item.totalCompraCop !==
-                        null
+                        {item.totalCompra !== null
                           ? formatCurrency(
-                              'COP',
-                              item.totalCompraCop,
+                              item.monedaTotalCompra,
+                              item.totalCompra,
                             )
                           : '-'}
                       </td>
 
-                      {/* TV */}
+                      {/* TV / PORCENTAJE */}
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm text-gray-700">
                         {item.tasaVenta !== null
-                          ? formatNumber(
-                              item.tasaVenta,
-                            )
+                          ? item.metodoCalculo === 'PORCENTAJE'
+                            ? `${
+                                item.aplicacionPorcentaje ===
+                                'DESCONTAR'
+                                  ? '-'
+                                  : '+'
+                              }${formatNumber(
+                                item.tasaVenta,
+                              )}%`
+                            : formatNumber(
+                                item.tasaVenta,
+                              )
                           : '-'}
                       </td>
 
-                      {/* TOTAL VENTA */}
+                      {/* TOTAL VENTA / DEUDA GENERADA */}
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm font-semibold text-gray-700">
-                        {item.totalVentaCop !==
-                        null
+                        {item.totalVenta !== null
                           ? formatCurrency(
-                              'COP',
-                              item.totalVentaCop,
+                              item.monedaTotalVenta,
+                              item.totalVenta,
                             )
                           : '-'}
                       </td>
 
-                      {/* UTILIDAD */}
+                      {/* UTILIDAD / COMISIÓN */}
                       <td className="whitespace-nowrap px-4 py-4 text-right text-sm font-semibold text-green-700">
-                        {item.utilidadCop !== null
+                        {item.utilidad !== null
                           ? formatCurrency(
-                              'COP',
-                              item.utilidadCop,
+                              item.monedaUtilidad,
+                              item.utilidad,
                             )
                           : '-'}
                       </td>

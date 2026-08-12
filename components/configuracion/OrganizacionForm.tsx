@@ -497,7 +497,7 @@ export function OrganizacionForm({ configuracion }: OrganizacionFormProps) {
             </select>
           </div> */}
 
-          {/* <div>
+          <div>
             <label
               htmlFor="zonaHoraria"
               className="mb-1 block text-sm font-medium text-gray-700"
@@ -509,22 +509,20 @@ export function OrganizacionForm({ configuracion }: OrganizacionFormProps) {
               id="zonaHoraria"
               value={form.zonaHoraria}
               onChange={(event) =>
-                updateField(
-                  'zonaHoraria',
-                  event.target.value,
-                )
+                updateField("zonaHoraria", event.target.value)
               }
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
             >
-              <option value="America/Caracas">
-                Venezuela
-              </option>
+              <option value="America/Caracas">Venezuela (UTC-4)</option>
 
-              <option value="America/Bogota">
-                Colombia
-              </option>
+              <option value="America/Bogota">Colombia (UTC-5)</option>
             </select>
-          </div> */}
+
+            <p className="mt-1 text-xs text-gray-500">
+              Define la zona horaria utilizada para mostrar fechas y horas en el
+              sistema.
+            </p>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end">

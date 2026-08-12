@@ -1,24 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import {
   FiArrowDownLeft,
   FiArrowUpRight,
-  FiBriefcase,
   FiCalendar,
   FiCreditCard,
   FiDollarSign,
   FiRefreshCw,
   FiTrendingDown,
   FiTrendingUp,
+  FiUsers,
 } from 'react-icons/fi';
 
 import { api } from '@/lib/api';
-import { formatMoney } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
+import { getTodayInTimeZone } from '@/lib/dates';
+import { formatDate } from '@/lib/formatters';
 
 import type {
-  DashboardCuentaCaja,
-  DashboardCuentaOperativa,
+  DashboardCuenta,
+  DashboardMoneda,
   DashboardResumen as DashboardResumenType,
 } from '@/types/dashboard';
 
@@ -26,33 +29,23 @@ type DashboardResumenProps = {
   initialData: DashboardResumenType;
 };
 
-function formatCurrency(
-  value: number,
-  moneda = 'COP',
+function formatAmount(
+  value: number | string | null | undefined,
 ) {
-  if (moneda === 'COP') {
-    return formatMoney(value);
-  }
-
   return new Intl.NumberFormat('es-CO', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  }).format(Number(value ?? 0));
 }
 
-function getTodayLocal() {
-  const formatter = new Intl.DateTimeFormat(
-    'en-CA',
-    {
-      timeZone: 'America/Caracas',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    },
-  );
-
-  return formatter.format(new Date());
+function formatCurrency(
+  value: number | string | null | undefined,
+  moneda: DashboardMoneda,
+) {
+  return `${formatAmount(value)} ${moneda}`;
 }
+
+
 
 export function DashboardResumen({
   initialData,
@@ -60,12 +53,21 @@ export function DashboardResumen({
   const [data, setData] =
     useState<DashboardResumenType>(initialData);
 
-  const [fecha, setFecha] = useState(
-    initialData.fecha || getTodayLocal(),
-  );
+  const { zonaHoraria } = useOrganizacion();
+
+  const [fecha, setFecha] =
+    useState(
+      initialData.fecha || getTodayInTimeZone(zonaHoraria),
+    );
 
   const [loading, setLoading] =
     useState(false);
+
+  const [moneda, setMoneda] =
+    useState<DashboardMoneda>(
+      initialData.monedasDisponibles[0] ??
+        'COP',
+    );
 
   async function cargarDashboard(
     nuevaFecha: string,
@@ -102,224 +104,217 @@ export function DashboardResumen({
     ) {
       cargarDashboard(fecha);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fecha]);
 
-  const {
-    capital,
-    caja,
-  } = data;
+  useEffect(() => {
+    if (
+      !data.monedasDisponibles.includes(
+        moneda,
+      )
+    ) {
+      setMoneda(
+        data.monedasDisponibles[0] ??
+          'COP',
+      );
+    }
+  }, [
+    data.monedasDisponibles,
+    moneda,
+  ]);
+
+  const resumen =
+    useMemo(
+      () =>
+        data.resumenPorMoneda.find(
+          (item) =>
+            item.moneda === moneda,
+        ),
+      [
+        data.resumenPorMoneda,
+        moneda,
+      ],
+    );
+
+  const cuentas =
+    useMemo(
+      () =>
+        data.cuentas.filter(
+          (cuenta) =>
+            cuenta.moneda === moneda,
+        ),
+      [data.cuentas, moneda],
+    );
+
+  const movimientos =
+    useMemo(
+      () =>
+        data.movimientos.filter(
+          (movimiento) =>
+            movimiento.moneda ===
+            moneda,
+        ),
+      [data.movimientos, moneda],
+    );
+
+  if (!resumen) {
+    return (
+      <div className="space-y-6">
+        <DashboardHeader
+          fecha={fecha}
+          loading={loading}
+          onFechaChange={setFecha}
+          onRefresh={() =>
+            cargarDashboard(fecha)
+          }
+        />
+
+        <div className="rounded-xl bg-white p-8 text-center shadow-sm">
+          <p className="text-sm text-gray-500">
+            No hay información disponible para el dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* =====================================
-          HEADER
-      ====================================== */}
-      <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Dashboard
-          </h1>
+      <DashboardHeader
+        fecha={fecha}
+        loading={loading}
+        onFechaChange={setFecha}
+        onRefresh={() =>
+          cargarDashboard(fecha)
+        }
+      />
 
-          <p className="mt-1 text-sm text-gray-500">
-            Estado financiero y movimientos
-            diarios del negocio.
-          </p>
-        </div>
+      {/* FILTRO GLOBAL POR MONEDA */}
+      <section className="border-b border-gray-200">
+        <div className="flex gap-6 overflow-x-auto">
+          {data.monedasDisponibles.map(
+            (item) => {
+              const active =
+                item === moneda;
 
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <FiCalendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-
-            <input
-              type="date"
-              value={fecha}
-              onChange={(event) =>
-                setFecha(
-                  event.target.value,
-                )
-              }
-              className="rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-gray-700 outline-none transition focus:border-blue-500"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              cargarDashboard(fecha)
-            }
-            disabled={loading}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-50"
-            title="Actualizar"
-          >
-            <FiRefreshCw
-              className={[
-                'h-4 w-4',
-                loading
-                  ? 'animate-spin'
-                  : '',
-              ].join(' ')}
-            />
-          </button>
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() =>
+                    setMoneda(item)
+                  }
+                  className={[
+                    'shrink-0 border-b-2 px-1 pb-3 text-sm font-semibold transition-colors',
+                    active
+                      ? 'border-blue-600 text-blue-700'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800',
+                  ].join(' ')}
+                >
+                  {item}
+                </button>
+              );
+            },
+          )}
         </div>
       </section>
 
-      {/* =====================================
-          CAPITAL PRINCIPAL
-      ====================================== */}
-      <section className="grid gap-4 md:grid-cols-4">
+      {/* RESUMEN PRINCIPAL */}
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <ResumenCard
-          title="Disponible en COP"
-          value={formatMoney(
-            capital.disponibleCop,
+          title="Saldo en cuentas"
+          value={formatCurrency(
+            resumen.saldoCuentas,
+            moneda,
           )}
-          description="Dinero disponible en cuentas base"
+          description={`${resumen.cantidadCuentas} cuenta${
+            resumen.cantidadCuentas !== 1
+              ? 's'
+              : ''
+          } activa${
+            resumen.cantidadCuentas !== 1
+              ? 's'
+              : ''
+          }`}
           icon={
             <FiCreditCard className="h-5 w-5" />
           }
         />
 
         <ResumenCard
-          title="Inventario de divisas"
-          value={formatMoney(
-            capital.inventarioDivisasCop,
+          title="Por cobrar"
+          value={formatCurrency(
+            resumen.cartera.porCobrar,
+            moneda,
           )}
-          description="Valorizado al promedio de compra"
+          description="Saldo pendiente a favor del negocio"
           icon={
-            <FiDollarSign className="h-5 w-5" />
+            <FiArrowDownLeft className="h-5 w-5" />
           }
+          valueClassName="text-green-700"
         />
+
         <ResumenCard
-          title="Cartera Neta"
-          value={formatMoney(
-            capital.cartera?.balanceNetoCop,
+          title="Por pagar"
+          value={formatCurrency(
+            resumen.cartera.porPagar,
+            moneda,
           )}
-          description="Valor de Cartera Neta"
+          description="Saldo pendiente a favor de terceros"
           icon={
-            <FiDollarSign className="h-5 w-5" />
+            <FiArrowUpRight className="h-5 w-5" />
+          }
+          valueClassName="text-red-700"
+        />
+
+        <ResumenCard
+          title="Balance cartera"
+          value={formatCurrency(
+            Math.abs(
+              resumen.cartera.balanceNeto,
+            ),
+            moneda,
+          )}
+          description={
+            resumen.cartera.balanceNeto >= 0
+              ? 'Neto por cobrar'
+              : 'Neto por pagar'
+          }
+          icon={
+            <FiUsers className="h-5 w-5" />
+          }
+          valueClassName={
+            resumen.cartera.balanceNeto >= 0
+              ? 'text-green-700'
+              : 'text-red-700'
           }
         />
 
         <ResumenCard
-          title="Capital operativo"
-          value={formatMoney(
-            capital.capitalOperativoCop,
+          title="Utilidad generada"
+          value={formatCurrency(
+            resumen.utilidadGenerada,
+            moneda,
           )}
-          description="COP disponible + divisas al costo"
+          description={`Utilidad registrada el ${data.fecha}`}
           icon={
-            <FiBriefcase className="h-5 w-5" />
+            <FiDollarSign className="h-5 w-5" />
           }
           principal
         />
       </section>
 
-      {/* =====================================
-          CUENTAS COP
-      ====================================== */}
-      <section>
-        <div className="mb-3">
-          <h2 className="text-base font-semibold text-gray-900">
-            Cuentas COP
-          </h2>
-
-          <p className="text-sm text-gray-500">
-            Disponibilidad actual en cuentas
-            base.
-          </p>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {capital.cuentasBase.map(
-            (cuenta) => (
-              <article
-                key={cuenta.id}
-                className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {cuenta.nombre}
-                    </p>
-
-                    <p className="mt-1 text-xs text-gray-400">
-                      {cuenta.moneda}
-                    </p>
-                  </div>
-
-                  <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
-                    <FiCreditCard className="h-4 w-4" />
-                  </div>
-                </div>
-
-                <p className="mt-5 text-2xl font-bold text-gray-900">
-                  {formatMoney(
-                    cuenta.saldo,
-                  )}
-                </p>
-
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
-                    Saldo actual
-                  </span>
-
-                  {cuenta.aplica4x1000 && (
-                    <span className="rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700">
-                      4x1000
-                    </span>
-                  )}
-                </div>
-              </article>
-            ),
-          )}
-        </div>
-      </section>
-
-      {/* =====================================
-          INVENTARIO OPERATIVO
-      ====================================== */}
+      {/* CAJA DEL DÍA */}
       <section className="overflow-hidden rounded-xl bg-white shadow-sm">
         <div className="border-b border-gray-100 p-6">
           <h2 className="text-base font-semibold text-gray-900">
-            Inventario de divisas
+            Movimiento del día · {moneda}
           </h2>
 
           <p className="text-sm text-gray-500">
-            Saldos operativos valorizados según
-            el promedio de compra.
-          </p>
-        </div>
-
-        <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
-          {capital.cuentasOperativas.length ===
-          0 ? (
-            <p className="text-sm text-gray-500">
-              No hay cuentas operativas
-              activas.
-            </p>
-          ) : (
-            capital.cuentasOperativas.map(
-              (cuenta) => (
-                <CuentaOperativaCard
-                  key={cuenta.id}
-                  cuenta={cuenta}
-                />
-              ),
-            )
-          )}
-        </div>
-      </section>
-
-      {/* =====================================
-          CAJA DEL DÍA
-      ====================================== */}
-      <section className="overflow-hidden rounded-xl bg-white shadow-sm">
-        <div className="border-b border-gray-100 p-6">
-          <h2 className="text-base font-semibold text-gray-900">
-            Caja del día
-          </h2>
-
-          <p className="text-sm text-gray-500">
-            Apertura, movimientos y cierre de
-            las cuentas COP.
+            Apertura, entradas, salidas y cierre de todas las cuentas en {moneda}.
           </p>
         </div>
 
@@ -327,101 +322,139 @@ export function DashboardResumen({
           <CajaCard
             label="Saldo inicial"
             value={
-              caja.resumen.saldoInicial
+              resumen.cajaDia.saldoInicial
             }
+            moneda={moneda}
           />
 
           <CajaCard
             label="Entradas"
-            value={caja.resumen.entradas}
+            value={
+              resumen.cajaDia.entradas
+            }
+            moneda={moneda}
             positive
           />
 
           <CajaCard
             label="Salidas"
-            value={caja.resumen.salidas}
+            value={
+              resumen.cajaDia.salidas
+            }
+            moneda={moneda}
             negative
           />
 
           <CajaCard
             label="Variación"
-            value={caja.resumen.variacion}
+            value={
+              resumen.cajaDia.variacion
+            }
+            moneda={moneda}
             positive={
-              caja.resumen.variacion >= 0
+              resumen.cajaDia.variacion >=
+              0
             }
             negative={
-              caja.resumen.variacion < 0
+              resumen.cajaDia.variacion <
+              0
             }
           />
 
           <CajaCard
             label="Saldo final"
-            value={caja.resumen.saldoFinal}
+            value={
+              resumen.cajaDia.saldoFinal
+            }
+            moneda={moneda}
             strong
           />
         </div>
-
-        {/* CAJA POR CUENTA */}
-        <div className="overflow-x-auto border-t border-gray-100">
-          <table className="w-full min-w-[900px]">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
-                  Cuenta
-                </th>
-
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
-                  Inicial
-                </th>
-
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
-                  Entradas
-                </th>
-
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
-                  Salidas
-                </th>
-
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
-                  Variación
-                </th>
-
-                <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
-                  Final
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {caja.cuentas.map(
-                (cuenta) => (
-                  <CajaCuentaRow
-                    key={cuenta.id}
-                    cuenta={cuenta}
-                  />
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
       </section>
 
-      {/* =====================================
-          MOVIMIENTOS DEL DÍA
-      ====================================== */}
+      {/* CUENTAS */}
       <section className="overflow-hidden rounded-xl bg-white shadow-sm">
         <div className="border-b border-gray-100 p-6">
           <h2 className="text-base font-semibold text-gray-900">
-            Movimientos del día
+            Cuentas en {moneda}
           </h2>
 
           <p className="text-sm text-gray-500">
-            Libro de caja de las cuentas COP.
+            Estado diario de las cuentas activas en la moneda seleccionada.
+          </p>
+        </div>
+
+        {cuentas.length === 0 ? (
+          <div className="p-8 text-center text-sm text-gray-500">
+            No hay cuentas activas en {moneda}.
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+              {cuentas.map((cuenta) => (
+                <CuentaCard
+                  key={cuenta.id}
+                  cuenta={cuenta}
+                />
+              ))}
+            </div>
+
+            <div className="overflow-x-auto border-t border-gray-100">
+              <table className="w-full min-w-[1000px]">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
+                      Cuenta
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Inicial
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Entradas
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Salidas
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Variación
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Final
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase text-gray-400">
+                      Actual
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {cuentas.map((cuenta) => (
+                    <CuentaRow
+                      key={cuenta.id}
+                      cuenta={cuenta}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* MOVIMIENTOS DEL DÍA */}
+      <section className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <div className="border-b border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900">
+            Movimientos del día · {moneda}
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            Libro de movimientos de las cuentas en {moneda}.
           </p>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px]">
+          <table className="w-full min-w-[1050px]">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
@@ -451,22 +484,20 @@ export function DashboardResumen({
             </thead>
 
             <tbody>
-              {caja.movimientos.length ===
-              0 ? (
+              {movimientos.length === 0 ? (
                 <tr>
                   <td
                     colSpan={6}
                     className="px-6 py-10 text-center text-sm text-gray-500"
                   >
-                    No se registraron
-                    movimientos en esta fecha.
+                    No se registraron movimientos en {moneda} para esta fecha.
                   </td>
                 </tr>
               ) : (
-                caja.movimientos.map(
+                movimientos.map(
                   (movimiento) => {
                     const cuenta =
-                      caja.cuentas.find(
+                      data.cuentas.find(
                         (item) =>
                           item.id ===
                           movimiento.cuentaId,
@@ -474,31 +505,29 @@ export function DashboardResumen({
 
                     return (
                       <tr
-                        key={
-                          movimiento.id
-                        }
-                        className="border-b border-gray-100"
+                        key={movimiento.id}
+                        className="border-b border-gray-100 transition hover:bg-gray-50"
                       >
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                          {new Intl.DateTimeFormat(
-                            'es-VE',
-                            {
-                              timeZone:
-                                'America/Caracas',
-                              hour: '2-digit',
-                              minute:
-                                '2-digit',
-                            },
-                          ).format(
-                            new Date(
-                              movimiento.creadoEn,
-                            ),
+                          {formatDate(
+                            movimiento.creadoEn,
+                            zonaHoraria,
                           )}
                         </td>
 
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {cuenta?.nombre ??
-                            '-'}
+                        <td className="px-6 py-4">
+                          {cuenta ? (
+                            <Link
+                              href={`/dashboard/cuentas/${cuenta.id}`}
+                              className="text-sm font-semibold text-gray-900 transition hover:text-blue-600 hover:underline"
+                            >
+                              {cuenta.nombre}
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-gray-500">
+                              -
+                            </span>
+                          )}
                         </td>
 
                         <td className="px-6 py-4 text-sm text-gray-600">
@@ -509,8 +538,9 @@ export function DashboardResumen({
                         <td className="px-6 py-4 text-right text-sm font-semibold text-green-600">
                           {movimiento.entrada >
                           0
-                            ? formatMoney(
+                            ? formatCurrency(
                                 movimiento.entrada,
+                                moneda,
                               )
                             : '-'}
                         </td>
@@ -518,15 +548,17 @@ export function DashboardResumen({
                         <td className="px-6 py-4 text-right text-sm font-semibold text-red-600">
                           {movimiento.salida >
                           0
-                            ? formatMoney(
+                            ? formatCurrency(
                                 movimiento.salida,
+                                moneda,
                               )
                             : '-'}
                         </td>
 
-                        <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                          {formatMoney(
+                        <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                          {formatCurrency(
                             movimiento.saldoNuevo,
+                            moneda,
                           )}
                         </td>
                       </tr>
@@ -542,11 +574,65 @@ export function DashboardResumen({
   );
 }
 
-/**
- * ==========================================
- * SUBCOMPONENTES
- * ==========================================
- */
+function DashboardHeader({
+  fecha,
+  loading,
+  onFechaChange,
+  onRefresh,
+}: {
+  fecha: string;
+  loading: boolean;
+  onFechaChange: (fecha: string) => void;
+  onRefresh: () => void;
+}) {
+  return (
+    <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Dashboard
+        </h1>
+
+        <p className="mt-1 text-sm text-gray-500">
+          Posición financiera, cartera, utilidad y movimientos por moneda.
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <FiCalendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+
+          <input
+            type="date"
+            value={fecha}
+            onChange={(event) =>
+              onFechaChange(
+                event.target.value,
+              )
+            }
+            className="rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm font-medium text-gray-700 outline-none transition focus:border-blue-500"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 disabled:opacity-50"
+          title="Actualizar"
+        >
+          <FiRefreshCw
+            className={[
+              'h-4 w-4',
+              loading
+                ? 'animate-spin'
+                : '',
+            ].join(' ')}
+          />
+        </button>
+      </div>
+    </section>
+  );
+}
 
 type ResumenCardProps = {
   title: string;
@@ -554,6 +640,7 @@ type ResumenCardProps = {
   description: string;
   icon: React.ReactNode;
   principal?: boolean;
+  valueClassName?: string;
 };
 
 function ResumenCard({
@@ -562,6 +649,7 @@ function ResumenCard({
   description,
   icon,
   principal = false,
+  valueClassName,
 }: ResumenCardProps) {
   return (
     <article
@@ -572,13 +660,19 @@ function ResumenCard({
           : 'border-gray-100 bg-white',
       ].join(' ')}
     >
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-gray-500">
             {title}
           </p>
 
-          <p className="mt-2 text-2xl font-bold text-gray-900">
+          <p
+            className={[
+              'mt-2 text-2xl font-bold',
+              valueClassName ??
+                'text-gray-900',
+            ].join(' ')}
+          >
             {value}
           </p>
         </div>
@@ -602,114 +696,17 @@ function ResumenCard({
   );
 }
 
-function CuentaOperativaCard({
-  cuenta,
-}: {
-  cuenta: DashboardCuentaOperativa;
-}) {
-  const tieneDiferencia =
-    Math.abs(cuenta.diferenciaSaldo) >
-    0.01;
-
-  return (
-    <article className="rounded-xl border border-gray-100 p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="font-semibold text-gray-900">
-            {cuenta.nombre}
-          </p>
-
-          <p className="mt-1 text-xs text-gray-400">
-            {cuenta.moneda}
-          </p>
-        </div>
-
-        <div className="rounded-lg bg-green-50 p-2 text-green-700">
-          <FiDollarSign className="h-4 w-4" />
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <p className="text-2xl font-bold text-gray-900">
-          {formatCurrency(
-            cuenta.saldoActual,
-            cuenta.moneda,
-          )}{' '}
-          <span className="text-sm font-semibold text-gray-400">
-            {cuenta.moneda}
-          </span>
-        </p>
-      </div>
-
-      <div className="mt-5 space-y-2 border-t border-gray-100 pt-4">
-        <InfoRow
-          label="Promedio compra"
-          value={formatMoney(
-            cuenta.promedioCompra,
-          )}
-        />
-
-        <InfoRow
-          label="Valor al costo"
-          value={formatMoney(
-            cuenta.valorActualCop,
-          )}
-          strong
-        />
-
-        {tieneDiferencia && (
-          <div className="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700">
-            Diferencia de saldo:{' '}
-            {formatCurrency(
-              cuenta.diferenciaSaldo,
-              cuenta.moneda,
-            )}{' '}
-            {cuenta.moneda}
-          </div>
-        )}
-      </div>
-    </article>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  strong = false,
-}: {
-  label: string;
-  value: string;
-  strong?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-gray-500">
-        {label}
-      </span>
-
-      <span
-        className={[
-          'text-sm text-gray-900',
-          strong
-            ? 'font-bold'
-            : 'font-semibold',
-        ].join(' ')}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function CajaCard({
   label,
   value,
+  moneda,
   positive = false,
   negative = false,
   strong = false,
 }: {
   label: string;
   value: number;
+  moneda: DashboardMoneda;
   positive?: boolean;
   negative?: boolean;
   strong?: boolean;
@@ -747,25 +744,151 @@ function CajaCard({
               : 'text-gray-900',
         ].join(' ')}
       >
-        {formatMoney(value)}
+        {formatCurrency(
+          Math.abs(value),
+          moneda,
+        )}
       </p>
     </div>
   );
 }
 
-function CajaCuentaRow({
+function CuentaCard({
   cuenta,
 }: {
-  cuenta: DashboardCuentaCaja;
+  cuenta: DashboardCuenta;
+}) {
+  return (
+    <article className="rounded-xl border border-gray-100 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Link
+            href={`/dashboard/cuentas/${cuenta.id}`}
+            className="font-semibold text-gray-900 transition hover:text-blue-600 hover:underline"
+          >
+            {cuenta.nombre}
+          </Link>
+
+          <p className="mt-1 text-xs text-gray-400">
+            {cuenta.categoria} · {cuenta.tipo}
+          </p>
+        </div>
+
+        <div className="rounded-lg bg-blue-50 p-2 text-blue-600">
+          <FiCreditCard className="h-4 w-4" />
+        </div>
+      </div>
+
+      <p className="mt-5 text-2xl font-bold text-gray-900">
+        {formatCurrency(
+          cuenta.saldoActual,
+          cuenta.moneda,
+        )}
+      </p>
+
+      <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4">
+        <InfoItem
+          label="Entradas"
+          value={formatCurrency(
+            cuenta.entradas,
+            cuenta.moneda,
+          )}
+          positive
+        />
+
+        <InfoItem
+          label="Salidas"
+          value={formatCurrency(
+            cuenta.salidas,
+            cuenta.moneda,
+          )}
+          negative
+        />
+
+        <InfoItem
+          label="Variación"
+          value={formatCurrency(
+            Math.abs(
+              cuenta.variacion,
+            ),
+            cuenta.moneda,
+          )}
+          positive={
+            cuenta.variacion >= 0
+          }
+          negative={
+            cuenta.variacion < 0
+          }
+        />
+
+        <InfoItem
+          label="Movimientos"
+          value={String(
+            cuenta.cantidadMovimientos,
+          )}
+        />
+      </div>
+
+      {cuenta.aplica4x1000 && (
+        <div className="mt-4">
+          <span className="rounded-full bg-orange-50 px-2 py-1 text-[11px] font-semibold text-orange-700">
+            4x1000
+          </span>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function InfoItem({
+  label,
+  value,
+  positive = false,
+  negative = false,
+}: {
+  label: string;
+  value: string;
+  positive?: boolean;
+  negative?: boolean;
+}) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase text-gray-400">
+        {label}
+      </p>
+
+      <p
+        className={[
+          'mt-1 text-sm font-semibold',
+          positive
+            ? 'text-green-700'
+            : negative
+              ? 'text-red-700'
+              : 'text-gray-900',
+        ].join(' ')}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function CuentaRow({
+  cuenta,
+}: {
+  cuenta: DashboardCuenta;
 }) {
   return (
     <tr className="border-b border-gray-100 transition hover:bg-gray-50">
       <td className="px-6 py-4">
-        <p className="text-sm font-semibold text-gray-900">
+        <Link
+          href={`/dashboard/cuentas/${cuenta.id}`}
+          className="text-sm font-semibold text-gray-900 transition hover:text-blue-600 hover:underline"
+        >
           {cuenta.nombre}
-        </p>
+        </Link>
 
-        <p className="text-xs text-gray-400">
+        <p className="mt-1 text-xs text-gray-400">
           {cuenta.cantidadMovimientos}{' '}
           movimiento
           {cuenta.cantidadMovimientos !==
@@ -776,20 +899,23 @@ function CajaCuentaRow({
       </td>
 
       <td className="px-6 py-4 text-right text-sm text-gray-600">
-        {formatMoney(
+        {formatCurrency(
           cuenta.saldoInicial,
+          cuenta.moneda,
         )}
       </td>
 
       <td className="px-6 py-4 text-right text-sm font-semibold text-green-600">
-        {formatMoney(
+        {formatCurrency(
           cuenta.entradas,
+          cuenta.moneda,
         )}
       </td>
 
       <td className="px-6 py-4 text-right text-sm font-semibold text-red-600">
-        {formatMoney(
+        {formatCurrency(
           cuenta.salidas,
+          cuenta.moneda,
         )}
       </td>
 
@@ -804,14 +930,23 @@ function CajaCuentaRow({
         {cuenta.variacion > 0
           ? '+'
           : ''}
-        {formatMoney(
+        {formatCurrency(
           cuenta.variacion,
+          cuenta.moneda,
         )}
       </td>
 
       <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
-        {formatMoney(
+        {formatCurrency(
           cuenta.saldoFinal,
+          cuenta.moneda,
+        )}
+      </td>
+
+      <td className="px-6 py-4 text-right text-sm font-bold text-blue-700">
+        {formatCurrency(
+          cuenta.saldoActual,
+          cuenta.moneda,
         )}
       </td>
     </tr>

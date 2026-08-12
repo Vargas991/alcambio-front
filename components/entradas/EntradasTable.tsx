@@ -13,6 +13,7 @@ import {
   formatDate,
   formatMoney,
 } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type { Entrada } from '@/types/entradas';
 
@@ -47,6 +48,7 @@ function getDestino(entrada: Entrada) {
     'Sin acreedor'
   );
 }
+
 
 /**
  * Muestra el impuesto correspondiente
@@ -110,6 +112,7 @@ export function EntradasTable({
 
   const [loadingId, setLoadingId] =
     useState<string | null>(null);
+  const { zonaHoraria } = useOrganizacion();
 
   async function handleEliminar(
     entrada: Entrada,
@@ -246,6 +249,7 @@ export function EntradasTable({
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {formatDate(
                         entrada.creadoEn,
+                        zonaHoraria,
                       )}
                     </td>
 

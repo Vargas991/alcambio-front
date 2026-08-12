@@ -3,8 +3,9 @@
 import type { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { getAuthUserServer } from '@/services/auth.server';
-import { getIdentidadOrganizacionServer } from '@/services/configuracion.server';
+import { getIdentidadOrganizacionServer, getConfiguracionOrganizacionServer } from '@/services/configuracion.server';
 import { redirect } from 'next/navigation';
+import OrganizacionProvider from '@/components/organizacion/OrganizacionProvider';
 
 export default async function PrivateLayout({
   children,
@@ -12,9 +13,10 @@ export default async function PrivateLayout({
   children: ReactNode;
 }) {
 
- const [user, identidad] = await Promise.all([
+ const [user, identidad, configuracion] = await Promise.all([
   getAuthUserServer(),
   getIdentidadOrganizacionServer(),
+  getConfiguracionOrganizacionServer(),
 ]);
 
 if (!user) {
@@ -23,8 +25,10 @@ if (!user) {
     );
   }
   return (
-    <AppShell user={user} identidad={identidad}>
-      {children}
-    </AppShell>
+    <OrganizacionProvider configuracion={configuracion}>
+      <AppShell user={user} identidad={identidad}>
+        {children}
+      </AppShell>
+    </OrganizacionProvider>
   );
 }

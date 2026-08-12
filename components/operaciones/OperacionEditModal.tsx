@@ -1,11 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
 import { api } from '@/lib/api';
-import { formatMoney } from '@/lib/formatters';
+import { formatNumber } from '@/lib/formatters';
 import {
   numberToInputValue,
   parseFormattedNumber,
@@ -22,6 +22,9 @@ import type {
 } from '@/types/operaciones';
 
 import type { PromedioCompraCuenta } from '@/types/cuentas';
+
+type MetodoCalculoOperacion = 'TASA' | 'PORCENTAJE';
+type AplicacionPorcentaje = 'SUMAR' | 'DESCONTAR';
 
 type DestinoOperacion =
   | {
@@ -88,6 +91,21 @@ export function OperacionEditModal({
   const [origenValue, setOrigenValue] = useState(origenInicial);
   const [destinoValue, setDestinoValue] = useState(destinoInicial);
   const [moneda, setMoneda] = useState<Moneda>(operacion.monedaTransaccion);
+  const [monedaDeuda, setMonedaDeuda] = useState<Moneda>(
+    operacion.monedaDeuda ?? operacion.monedaTransaccion,
+  );
+  const [metodoCalculo, setMetodoCalculo] =
+    useState<MetodoCalculoOperacion>(
+      operacion.metodoCalculo ?? 'TASA',
+    );
+  const [porcentaje, setPorcentaje] = useState(
+    String(operacion.porcentaje ?? ''),
+  );
+  const [aplicacionPorcentaje, setAplicacionPorcentaje] =
+    useState<AplicacionPorcentaje>(
+      operacion.aplicacionPorcentaje ?? 'SUMAR',
+    );
+
   const [montoTransaccion, setMontoTransaccion] = useState(
     numberToInputValue(operacion.montoTransaccion),
   );
@@ -183,6 +201,20 @@ export function OperacionEditModal({
         ? selectedDestino.moneda
         : moneda;
 
+  useEffect(() => {
+    if (metodoCalculo === 'PORCENTAJE') {
+      setMonedaDeuda(monedaOperacion);
+    }
+  }, [metodoCalculo, monedaOperacion]);
+
+  useEffect(() => {
+    if (operationMode !== 'VENTA' && metodoCalculo === 'PORCENTAJE') {
+      setMetodoCalculo('TASA');
+      setPorcentaje('');
+      setAplicacionPorcentaje('SUMAR');
+    }
+  }, [operationMode, metodoCalculo]);
+
   const cuentaOperativaSeleccionada =
     operationMode === 'VENTA' && selectedOrigen?.tipo === 'CUENTA'
       ? selectedOrigen
@@ -194,40 +226,87 @@ export function OperacionEditModal({
     ? promediosPorCuenta[cuentaOperativaSeleccionada.id]
     : undefined;
 
-  const preview = useMemo(() => {
-    const monto = parseFormattedNumber(montoTransaccion) || 0;
-    const tc = Number(tasaCompra) || 0;
-    const tv = Number(tasaVenta) || 0;
+  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
+  const tasaCompraNumber = Number(tasaCompra) || 0;
+  const tasaVentaNumber = Number(tasaVenta) || 0;
+  const porcentajeNumber = Number(porcentaje) || 0;
 
-    const totalCompraCop = roundCop(monto * tc);
-    const totalVentaCop = roundCop(monto * tv);
-    const utilidadCop = totalVentaCop - totalCompraCop;
+  const tasaVentaEfectiva =
+    operationMode === 'COMPRA'
+      ? tasaCompraNumber
+      : tasaVentaNumber;
+
+  const previewTasa = useMemo(() => {
+    const totalCompra = roundCop(montoNumber * tasaCompraNumber);
+    const totalVenta = roundCop(montoNumber * tasaVentaEfectiva);
+    const utilidad = totalVenta - totalCompra;
 
     return {
-      totalCompraCop,
-      totalVentaCop,
-      utilidadCop,
+      totalCompra,
+      totalVenta,
+      utilidad,
     };
-  }, [montoTransaccion, tasaCompra, tasaVenta]);
+  }, [
+    montoNumber,
+    tasaCompraNumber,
+    tasaVentaEfectiva,
+  ]);
 
-  const montoNumber = parseFormattedNumber(montoTransaccion) || 0;
+  const previewPorcentaje = useMemo(() => {
+    const montoComision = Number(
+      ((montoNumber * porcentajeNumber) / 100).toFixed(6),
+    );
+
+    const montoEntregado =
+      aplicacionPorcentaje === 'DESCONTAR'
+        ? Number((montoNumber - montoComision).toFixed(6))
+        : montoNumber;
+
+    const montoDeuda =
+      aplicacionPorcentaje === 'SUMAR'
+        ? Number((montoNumber + montoComision).toFixed(6))
+        : montoNumber;
+
+    return {
+      montoComision,
+      montoEntregado,
+      montoDeuda,
+    };
+  }, [
+    montoNumber,
+    porcentajeNumber,
+    aplicacionPorcentaje,
+  ]);
+
+  const montoSalidaActual =
+    operacion.metodoCalculo === 'PORCENTAJE' &&
+    operacion.montoResultado !== null &&
+    operacion.montoResultado !== undefined
+      ? Number(operacion.montoResultado)
+      : Number(operacion.montoTransaccion || 0);
+
+  const montoSalidaNueva =
+    metodoCalculo === 'PORCENTAJE'
+      ? previewPorcentaje.montoEntregado
+      : montoNumber;
 
   const saldoDisponibleParaEditar =
     operationMode === 'VENTA' && selectedOrigen?.tipo === 'CUENTA'
       ? Number(selectedOrigen.saldo || 0) +
         (operacion.tipo === 'VENTA' &&
         operacion.cuentaOperativaId === selectedOrigen.id
-          ? Number(operacion.montoTransaccion || 0)
+          ? montoSalidaActual
           : 0)
       : 0;
 
   const saldoInsuficiente =
     operationMode === 'VENTA' &&
     selectedOrigen?.tipo === 'CUENTA' &&
-    montoNumber > saldoDisponibleParaEditar;
+    montoSalidaNueva > saldoDisponibleParaEditar;
 
   const ventaPorDebajoDelPromedio =
     operationMode === 'VENTA' &&
+    metodoCalculo === 'TASA' &&
     promedioCuentaSeleccionada &&
     parseFormattedNumber(tasaVenta) > 0 &&
     parseFormattedNumber(tasaVenta) < promedioCuentaSeleccionada.promedioCompra;
@@ -315,26 +394,58 @@ export function OperacionEditModal({
     const monto = parseFormattedNumber(montoTransaccion);
     const tc = Number(tasaCompra);
     const tv = Number(tasaVenta);
+    const porcentajeValue = Number(porcentaje);
 
     if (monto <= 0) {
       setErrorMessage('Ingrese un monto válido.');
       return;
     }
 
-    if (tc <= 0) {
-      setErrorMessage('Ingrese una tasa de compra válida.');
-      return;
+    if (metodoCalculo === 'TASA') {
+      if (tc <= 0) {
+        setErrorMessage('Ingrese una tasa de compra válida.');
+        return;
+      }
+
+      if (operationMode !== 'COMPRA' && tv <= 0) {
+        setErrorMessage('Ingrese una tasa de venta válida.');
+        return;
+      }
+
+      if (!monedaDeuda) {
+        setErrorMessage('Seleccione la moneda de la deuda.');
+        return;
+      }
     }
 
-    if (operationMode !== 'COMPRA' && tv <= 0) {
-      setErrorMessage('Ingrese una tasa de venta válida.');
-      return;
+    if (metodoCalculo === 'PORCENTAJE') {
+      if (operationMode !== 'VENTA') {
+        setErrorMessage(
+          'El cálculo por porcentaje solo está disponible para ventas.',
+        );
+        return;
+      }
+
+      if (porcentajeValue <= 0) {
+        setErrorMessage('Ingrese un porcentaje válido.');
+        return;
+      }
+
+      if (
+        aplicacionPorcentaje === 'DESCONTAR' &&
+        previewPorcentaje.montoEntregado <= 0
+      ) {
+        setErrorMessage(
+          'El porcentaje descontado no puede dejar el monto entregado en cero o negativo.',
+        );
+        return;
+      }
     }
 
     if (
       operationMode === 'VENTA' &&
       selectedOrigen.tipo === 'CUENTA' &&
-      monto > saldoDisponibleParaEditar
+      montoSalidaNueva > saldoDisponibleParaEditar
     ) {
       setErrorMessage('Saldo insuficiente en la cuenta operativa.');
       return;
@@ -343,46 +454,23 @@ export function OperacionEditModal({
     setSaving(true);
 
     try {
-      let payload:
-        | {
-            tipo: 'VENTA';
-            nombre: string;
-            deudorId: string;
-            acreedorId: null;
-            cuentaOperativaId: string;
-            monedaTransaccion: Moneda;
-            montoTransaccion: number;
-            tasaCompra: number;
-            tasaVenta: number;
-            destinatario: string;
-            notas?: string;
-          }
-        | {
-            tipo: 'COMPRA';
-            nombre: string;
-            deudorId: null;
-            acreedorId: string;
-            cuentaOperativaId: string;
-            monedaTransaccion: Moneda;
-            montoTransaccion: number;
-            tasaCompra: number;
-            tasaVenta: number;
-            destinatario: string;
-            notas?: string;
-          }
-        | {
-            tipo: 'OPERACION_DIRECTA';
-            nombre: string;
-            acreedorId: string;
-            deudorId: string;
-            cuentaOperativaId: null;
-            monedaTransaccion: Moneda;
-            montoTransaccion: number;
-            tasaCompra: number;
-            tasaVenta: number;
-            destinatario: string;
-            notas?: string;
-          };
+      const datosCalculo =
+        metodoCalculo === 'TASA'
+          ? {
+              metodoCalculo: 'TASA' as const,
+              tasaCompra: tc,
+              tasaVenta:
+                operationMode === 'COMPRA' ? tc : tv,
+              monedaDeuda,
+            }
+          : {
+              metodoCalculo: 'PORCENTAJE' as const,
+              porcentaje: porcentajeValue,
+              aplicacionPorcentaje,
+              monedaDeuda: monedaOperacion,
+            };
+
+      let payload: Record<string, unknown>;
 
       if (operationMode === 'VENTA') {
         if (
@@ -403,8 +491,7 @@ export function OperacionEditModal({
           cuentaOperativaId: selectedOrigen.id,
           monedaTransaccion: selectedOrigen.moneda,
           montoTransaccion: monto,
-          tasaCompra: tc,
-          tasaVenta: tv,
+          ...datosCalculo,
           destinatario: selectedDestino.nombre,
           notas: nota || undefined,
         };
@@ -427,8 +514,7 @@ export function OperacionEditModal({
           cuentaOperativaId: selectedDestino.id,
           monedaTransaccion: selectedDestino.moneda,
           montoTransaccion: monto,
-          tasaCompra: tc,
-          tasaVenta: 1,
+          ...datosCalculo,
           destinatario: selectedDestino.nombre,
           notas: nota || undefined,
         };
@@ -451,8 +537,7 @@ export function OperacionEditModal({
           cuentaOperativaId: null,
           monedaTransaccion: moneda,
           montoTransaccion: monto,
-          tasaCompra: tc,
-          tasaVenta: tv,
+          ...datosCalculo,
           destinatario: selectedDestino.nombre,
           notas: nota || undefined,
         };
@@ -637,7 +722,33 @@ export function OperacionEditModal({
             )}
           </div>
 
-          {promedioCuentaSeleccionada && operationMode === 'VENTA' && (
+          <div className="lg:col-span-3">
+            <label className="mb-1 block text-sm font-semibold text-gray-700">
+              Método de cálculo
+            </label>
+
+            <select
+              value={metodoCalculo}
+              onChange={(event) =>
+                setMetodoCalculo(
+                  event.target.value as MetodoCalculoOperacion,
+                )
+              }
+              className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="TASA">Por tasa</option>
+
+              {operationMode === 'VENTA' && (
+                <option value="PORCENTAJE">
+                  Por porcentaje
+                </option>
+              )}
+            </select>
+          </div>
+
+          {promedioCuentaSeleccionada &&
+            operationMode === 'VENTA' &&
+            metodoCalculo === 'TASA' && (
             <div className="lg:col-span-12">
               <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
                 <p>
@@ -654,77 +765,215 @@ export function OperacionEditModal({
             </div>
           )}
 
-          <div className="lg:col-span-3">
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Tasa Compra
-            </label>
-
-            <input
-              type="number"
-              step="0.0001"
-              value={tasaCompra}
-              onChange={(event) => setTasaCompra(event.target.value)}
-              className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              placeholder="0"
-            />
-          </div>
-
-          <div className="lg:col-span-3">
-            <label className="mb-1 block text-sm font-semibold text-gray-700">
-              Total Compra
-            </label>
-
-            <input
-              readOnly
-              value={formatMoney(preview.totalCompraCop)}
-              className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
-            />
-          </div>
-
-          {operationMode !== 'COMPRA' && (
+          {metodoCalculo === 'TASA' ? (
             <>
               <div className="lg:col-span-3">
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Tasa Venta
+                  Tasa compra
                 </label>
 
                 <input
                   type="number"
+                  min="0"
                   step="0.0001"
-                  value={tasaVenta}
-                  onChange={(event) => setTasaVenta(event.target.value)}
+                  value={tasaCompra}
+                  onChange={(event) =>
+                    setTasaCompra(event.target.value)
+                  }
                   className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   placeholder="0"
                 />
+              </div>
 
-                {ventaPorDebajoDelPromedio && (
-                  <p className="mt-1 text-xs font-semibold text-red-600">
-                    Estás vendiendo por debajo del promedio de compra.
-                  </p>
-                )}
+              {operationMode !== 'COMPRA' && (
+                <div className="lg:col-span-3">
+                  <label className="mb-1 block text-sm font-semibold text-gray-700">
+                    Tasa venta
+                  </label>
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={tasaVenta}
+                    onChange={(event) =>
+                      setTasaVenta(event.target.value)
+                    }
+                    className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    placeholder="0"
+                  />
+
+                  {ventaPorDebajoDelPromedio && (
+                    <p className="mt-1 text-xs font-semibold text-red-600">
+                      Estás vendiendo por debajo del promedio de compra.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Moneda de la deuda
+                </label>
+
+                <select
+                  value={monedaDeuda}
+                  onChange={(event) =>
+                    setMonedaDeuda(
+                      event.target.value as Moneda,
+                    )
+                  }
+                  className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="BS">BS</option>
+                  <option value="COP">COP</option>
+                  <option value="USD">USD</option>
+                  <option value="USDT">USDT</option>
+                </select>
               </div>
 
               <div className="lg:col-span-3">
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Total venta
+                  Total compra
                 </label>
 
                 <input
                   readOnly
-                  value={formatMoney(preview.totalVentaCop)}
+                  value={`${formatNumber(
+                    previewTasa.totalCompra,
+                  )} ${monedaDeuda}`}
+                  className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+                />
+              </div>
+
+              {operationMode !== 'COMPRA' && (
+                <>
+                  <div className="lg:col-span-3">
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">
+                      Total venta
+                    </label>
+
+                    <input
+                      readOnly
+                      value={`${formatNumber(
+                        previewTasa.totalVenta,
+                      )} ${monedaDeuda}`}
+                      className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
+                    />
+                  </div>
+
+                  <div className="lg:col-span-3">
+                    <label className="mb-1 block text-sm font-semibold text-gray-700">
+                      Utilidad estimada
+                    </label>
+
+                    <input
+                      readOnly
+                      value={`${formatNumber(
+                        previewTasa.utilidad,
+                      )} ${monedaDeuda}`}
+                      className="h-11 w-full rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Porcentaje
+                </label>
+
+                <input
+                  type="number"
+                  min="0.0001"
+                  max="100"
+                  step="0.0001"
+                  value={porcentaje}
+                  onChange={(event) =>
+                    setPorcentaje(event.target.value)
+                  }
+                  className="h-11 w-full rounded-lg border border-gray-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="1.5"
+                />
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Aplicación
+                </label>
+
+                <select
+                  value={aplicacionPorcentaje}
+                  onChange={(event) =>
+                    setAplicacionPorcentaje(
+                      event.target
+                        .value as AplicacionPorcentaje,
+                    )
+                  }
+                  className="h-11 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="SUMAR">
+                    Sumar al monto
+                  </option>
+                  <option value="DESCONTAR">
+                    Descontar del monto
+                  </option>
+                </select>
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Comisión
+                </label>
+
+                <input
+                  readOnly
+                  value={`${formatNumber(
+                    previewPorcentaje.montoComision,
+                  )} ${monedaOperacion}`}
                   className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
                 />
               </div>
 
               <div className="lg:col-span-3">
                 <label className="mb-1 block text-sm font-semibold text-gray-700">
-                  Utilidad estimada
+                  Monto entregado
                 </label>
 
                 <input
                   readOnly
-                  value={formatMoney(preview.utilidadCop)}
-                  className="h-11 w-full rounded-lg border border-gray-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+                  value={`${formatNumber(
+                    previewPorcentaje.montoEntregado,
+                  )} ${monedaOperacion}`}
+                  className="h-11 w-full rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-semibold text-blue-700 outline-none"
+                />
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Deuda generada
+                </label>
+
+                <input
+                  readOnly
+                  value={`${formatNumber(
+                    previewPorcentaje.montoDeuda,
+                  )} ${monedaOperacion}`}
+                  className="h-11 w-full rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-700 outline-none"
+                />
+              </div>
+
+              <div className="lg:col-span-3">
+                <label className="mb-1 block text-sm font-semibold text-gray-700">
+                  Moneda de la deuda
+                </label>
+
+                <input
+                  readOnly
+                  value={monedaOperacion}
+                  className="h-11 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 outline-none"
                 />
               </div>
             </>

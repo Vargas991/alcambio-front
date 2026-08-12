@@ -13,6 +13,7 @@ import {
 
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type {
   Usuario,
@@ -51,6 +52,7 @@ export function UsuariosTable({
 
   const [loadingId, setLoadingId] =
     useState<string | null>(null);
+  const { zonaHoraria } = useOrganizacion();
 
   async function handleEstado(
     usuario: Usuario,
@@ -204,8 +206,9 @@ export function UsuariosTable({
 
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(
-                          usuario.creadoEn,
-                        )}
+                            usuario.creadoEn,
+                            zonaHoraria,
+                          )}
                       </td>
 
                       <td className="px-6 py-4">

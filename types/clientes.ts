@@ -50,36 +50,72 @@ export type ClienteLedgerCuenta = {
 
 export type ClienteLedgerOperacion = {
   id: string;
-  codigo?: string;
-  nombre?: string | null;
+  codigo: string;
+  nombre: string;
 
-  tipo: string;
-  estado: string;
+  tipo:
+    | 'VENTA'
+    | 'COMPRA'
+    | 'OPERACION_DIRECTA';
 
-  deudorId?: string | null;
-  acreedorId?: string | null;
-  cuentaOperativaId?: string | null;
+  estado: 'REGISTRADA' | 'CANCELADA';
 
   monedaTransaccion: string;
   montoTransaccion: string | number;
 
-  tasaCompra: string | number | null;
-  tasaVenta: string | number | null;
+  /**
+   * Método de cálculo
+   */
+  metodoCalculo: 'TASA' | 'PORCENTAJE';
 
-  totalCompraCop: string | number | null;
-  totalVentaCop: string | number | null;
-  utilidadCop: string | number | null;
+  /**
+   * Operaciones por tasa
+   */
+  tasaCompra: string | number;
+  tasaVenta: string | number;
 
-  fechaOperacion?: string | null;
+  totalCompraCop: string | number;
+  totalVentaCop: string | number;
+  utilidadCop: string | number;
+
+  /**
+   * Operaciones por porcentaje
+   */
+  porcentaje?: string | number | null;
+
+  aplicacionPorcentaje?:
+    | 'SUMAR'
+    | 'DESCONTAR'
+    | null;
+
+  montoComision?: string | number | null;
+  montoResultado?: string | number | null;
+
+  /**
+   * Deuda resultante
+   */
+  monedaDeuda?: string | null;
+  montoDeuda?: string | number | null;
+
   destinatario?: string | null;
   notas?: string | null;
+  fechaOperacion?: string;
 
-  creadoEn?: string;
-  actualizadoEn?: string;
+  deudor?: {
+    id: string;
+    nombre: string;
+  } | null;
 
-  deudor?: ClienteLedgerRelacion | null;
-  acreedor?: ClienteLedgerRelacion | null;
-  cuentaOperativa?: ClienteLedgerCuenta | null;
+  acreedor?: {
+    id: string;
+    nombre: string;
+  } | null;
+
+  cuentaOperativa?: {
+    id: string;
+    nombre: string;
+    moneda: string;
+  } | null;
 };
 
 export type ClienteLedgerEntrada = {
@@ -92,11 +128,29 @@ export type ClienteLedgerEntrada = {
   acreedorId?: string | null;
   cuentaId?: string | null;
 
+  /**
+   * Legado
+   */
   montoCop: string | number;
+
+  /**
+   * Multimoneda
+   */
+  monedaPago: 'COP' | 'BS' | 'USD' | 'USDT';
+  montoPago: string | number;
+
+  monedaAplicacion: 'COP' | 'BS' | 'USD' | 'USDT';
+  montoAplicado: string | number;
+
+  tasaConversion?: string | number | null;
 
   aplica4x1000?: boolean;
   impuesto4x1000Cop?: string | number;
   montoAplicadoDeudaCop?: string | number | null;
+
+  proveedorCobra4x1000?: boolean;
+  impuestoProveedor4x1000Cop?: string | number;
+  montoNetoAcreedorCop?: string | number;
 
   descripcion?: string | null;
   referencia?: string | null;
@@ -119,8 +173,22 @@ export type ClienteLedgerSalida = {
   acreedorId?: string | null;
   cuentaId?: string | null;
 
+  /**
+   * Legado
+   */
   montoCop?: string | number;
   montoBaseCop?: string | number;
+
+  /**
+   * Multimoneda
+   */
+  monedaPago: 'COP' | 'BS' | 'USD' | 'USDT';
+  montoPago: string | number;
+
+  monedaAplicacion: 'COP' | 'BS' | 'USD' | 'USDT';
+  montoAplicado: string | number;
+
+  tasaConversion?: string | number | null;
 
   proveedorCobra4x1000?: boolean;
   impuestoProveedor4x1000Cop?: string | number;
@@ -152,13 +220,41 @@ export type ClienteLedgerEntry = {
   entradaId: string | null;
   salidaId: string | null;
 
+  /**
+   * Datos originales/físicos de la transacción.
+   */
   monedaTransaccion: string | null;
   montoTransaccion: number | string | null;
 
+  /**
+   * Campos antiguos en COP.
+   * Se mantienen por compatibilidad.
+   */
   debitoCop: number | string;
   creditoCop: number | string;
 
+  /**
+   * Campos multimoneda reales del ledger.
+   */
+  moneda: 'COP' | 'BS' | 'USD' | 'USDT';
+
+  debito: number | string | null;
+  credito: number | string | null;
+
+  saldoAnterior?: number | string | null;
+  saldoNuevo?: number | string | null;
+
+  /**
+   * Saldo acumulado calculado por el servicio.
+   */
+  saldoAcumulado?: number | string;
+  saldoAcumuladoMoneda?: 'COP' | 'BS' | 'USD' | 'USDT';
+
+  /**
+   * Compatibilidad con implementación anterior.
+   */
   saldoAcumuladoCop?: number | string;
+
   utilidadRealCop?: number | string;
 
   descripcion: string;
@@ -167,6 +263,14 @@ export type ClienteLedgerEntry = {
   operacion?: ClienteLedgerOperacion | null;
   entrada?: ClienteLedgerEntrada | null;
   salida?: ClienteLedgerSalida | null;
+};
+
+export type BalanceClienteMoneda = {
+  moneda: 'COP' | 'BS' | 'USD' | 'USDT';
+  totalDebitos: number;
+  totalCreditos: number;
+  saldo: number;
+  estado: string;
 };
 
 export type ClienteLedgerResponse = {
@@ -185,21 +289,12 @@ export type ClienteLedgerResponse = {
     estado: string | null;
     tipoMov?: string | null;
     moneda: string | null;
+    metodoCalculo?: 'TASA' | 'PORCENTAJE' | null;
   };
 
   resumen: {
-    totalDebitosCop: number;
-    totalCreditosCop: number;
-    saldoFiltradoCop: number;
-    estado: 'ME_DEBE' | 'LE_DEBO' | 'SALDADO';
-
-    totalDebitosGlobalCop: number;
-    totalCreditosGlobalCop: number;
-    saldoTotalCop: number;
-    estadoTotal:
-      | 'ME_DEBE'
-      | 'LE_DEBO'
-      | 'SALDADO';
+    balancesFiltrados: BalanceClienteMoneda[];
+    balancesGlobales: BalanceClienteMoneda[];
 
     totalUtilidadRealCop: number;
 
@@ -216,31 +311,48 @@ export type EstadoCarteraCliente =
   | 'ME_DEBE'
   | 'LE_DEBO';
 
+  
+  export type Moneda =
+    | 'COP'
+    | 'BS'
+    | 'USD'
+    | 'USDT';
+    
+export type CarteraResumenMoneda = {
+  moneda: Moneda;
+  totalPorCobrar: number;
+  totalPorPagar: number;
+  balanceNeto: number;
+};
+
+  export type CarteraBalanceCliente = {
+  moneda: Moneda;
+  totalDebitos: string;
+  totalCreditos: string;
+  saldo: string;
+  estado:
+    | 'ME_DEBE'
+    | 'LE_DEBO'
+    | 'SALDADO';
+};
+
 export type CarteraClienteItem = {
   cliente: {
     id: string;
     nombre: string;
-    documento: string | null;
-    telefono: string | null;
+    documento?: string | null;
+    telefono?: string | null;
     estado: string;
   };
 
-  totalDebitosCop: number;
-  totalCreditosCop: number;
-  saldoCop: number;
-
-  estadoCartera: EstadoCarteraCliente;
+  balances: CarteraBalanceCliente[];
 };
 
 export type CarteraResponse = {
-  resumen: {
-    totalPorCobrarCop: number;
-    totalPorPagarCop: number;
-    balanceNetoCop: number;
+  resumenPorMoneda: CarteraResumenMoneda[];
 
-    cantidadMeDeben: number;
-    cantidadLesDebo: number;
-  };
+  cantidadMeDeben: number;
+  cantidadLesDebo: number;
 
   meDeben: CarteraClienteItem[];
   lesDebo: CarteraClienteItem[];

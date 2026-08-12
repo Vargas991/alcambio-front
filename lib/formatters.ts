@@ -1,3 +1,5 @@
+import { DEFAULT_TIME_ZONE, formatDateTimeInTimeZone } from './dates';
+
 export function formatMoney(value: number | string) {
   return new Intl.NumberFormat('es-CO', {
     style: 'currency',
@@ -14,9 +16,13 @@ export function formatNumber(value: number | string) {
   }).format(Number(value || 0));
 }
 
-export function formatDate(value: string) {
-  return new Intl.DateTimeFormat('es-CO', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  }).format(new Date(value));
+/**
+ * Formats a date/time using the provided `timeZone`.
+ * If `timeZone` is omitted, falls back to a central default (not the browser timezone).
+ */
+export function formatDate(value: string | Date, timeZone?: string) {
+  const tz = timeZone ?? DEFAULT_TIME_ZONE;
+  return formatDateTimeInTimeZone(value, tz);
 }
+
+export default formatDate;

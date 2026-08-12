@@ -21,6 +21,7 @@ export type GetClienteLedgerServerParams = {
   desde?: string;
   hasta?: string;
   buscar?: string;
+  metodoCalculo?:string;
 };
 
 async function serverApiGet<T>(path: string): Promise<T> {
@@ -120,20 +121,41 @@ export async function getClienteLedgerServer(
   return response.data;
 }
 
-export async function getCarteraServer() {
+export async function getCarteraServer(): Promise<CarteraResponse> {
   const response =
-    await serverApiGet<ApiResponse<CarteraResponse>>('/clientes/cartera');
+    await serverApiGet<ApiResponse<CarteraResponse>>(
+      '/clientes/cartera',
+    );
 
-  const sortByNombre = (items: CarteraClienteItem[]) =>
+  const sortByNombre = (
+    items: CarteraClienteItem[],
+  ) =>
     [...items].sort((a, b) =>
-      a.cliente.nombre.localeCompare(b.cliente.nombre, 'es', {
-        sensitivity: 'base',
-      }),
+      a.cliente.nombre.localeCompare(
+        b.cliente.nombre,
+        'es',
+        {
+          sensitivity: 'base',
+        },
+      ),
     );
 
   return {
-    resumen: response.data.resumen,
-    meDeben: sortByNombre(response.data.meDeben),
-    lesDebo: sortByNombre(response.data.lesDebo),
+    resumenPorMoneda:
+      response.data.resumenPorMoneda,
+
+    cantidadMeDeben:
+      response.data.cantidadMeDeben,
+
+    cantidadLesDebo:
+      response.data.cantidadLesDebo,
+
+    meDeben: sortByNombre(
+      response.data.meDeben,
+    ),
+
+    lesDebo: sortByNombre(
+      response.data.lesDebo,
+    ),
   };
 }

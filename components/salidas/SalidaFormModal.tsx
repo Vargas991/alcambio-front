@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { api } from '@/lib/api';
-import { formatMoney } from '@/lib/formatters';
+import { api } from "@/lib/api";
 import {
   numberToInputValue,
   parseFormattedNumber,
-} from '@/lib/number-format';
+} from "@/lib/number-format";
 
-import type { ClienteResumenItem } from '@/types/clientes';
+import type { ClienteResumenItem } from "@/types/clientes";
 import type {
   Salida,
   TipoSalida,
-} from '@/types/salidas';
+} from "@/types/salidas";
+import type { Cuenta } from "@/types/cuentas";
+import type { Moneda } from "@/types/operaciones";
 
-import { FormattedNumberInput } from '../ui/FormattedNumberInput';
-import { Cuenta } from '@/types/cuentas';
+import { FormattedNumberInput } from "../ui/FormattedNumberInput";
 
 type SalidaFormModalProps = {
   open: boolean;
@@ -27,6 +27,153 @@ type SalidaFormModalProps = {
   salida?: Salida | null;
   onClose: () => void;
 };
+
+type SalidaMultimoneda = Salida & {
+  monedaPago?: Moneda | null;
+  montoPago?: number | string | null;
+  monedaAplicacion?: Moneda | null;
+  montoAplicado?: number | string | null;
+  tasaConversion?: number | string | null;
+};
+
+const MONEDAS: Moneda[] = [
+  "COP",
+  "USD",
+  "USDT",
+  "BS",
+];
+
+function formatAmount(value: number) {
+  return value.toLocaleString("es-CO", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  });
+}
+
+function formatCurrency(
+  value: number,
+  moneda: Moneda,
+) {
+  return `${formatAmount(value)} ${moneda}`;
+}
+
+/**
+ * Convención visual estable por par.
+ *
+ * IMPORTANTE:
+ * Esta es solamente la tasa que ve/captura el usuario.
+ *
+ * El backend recibe otra convención:
+ * unidades de monedaPago por 1 monedaAplicacion.
+ */
+function getParTasa(
+  monedaPago: Moneda,
+  monedaDeuda: Moneda,
+): {
+  base: Moneda;
+  quote: Moneda;
+} {
+  /**
+   * BS <-> COP
+   * 1 BS = X COP
+   */
+  if (
+    (monedaPago === "BS" &&
+      monedaDeuda === "COP") ||
+    (monedaPago === "COP" &&
+      monedaDeuda === "BS")
+  ) {
+    return {
+      base: "BS",
+      quote: "COP",
+    };
+  }
+
+  /**
+   * USD <-> COP
+   * 1 USD = X COP
+   */
+  if (
+    (monedaPago === "USD" &&
+      monedaDeuda === "COP") ||
+    (monedaPago === "COP" &&
+      monedaDeuda === "USD")
+  ) {
+    return {
+      base: "USD",
+      quote: "COP",
+    };
+  }
+
+  /**
+   * USD <-> BS
+   * 1 USD = X BS
+   */
+  if (
+    (monedaPago === "USD" &&
+      monedaDeuda === "BS") ||
+    (monedaPago === "BS" &&
+      monedaDeuda === "USD")
+  ) {
+    return {
+      base: "USD",
+      quote: "BS",
+    };
+  }
+
+  /**
+   * USDT <-> COP
+   * 1 USDT = X COP
+   */
+  if (
+    (monedaPago === "USDT" &&
+      monedaDeuda === "COP") ||
+    (monedaPago === "COP" &&
+      monedaDeuda === "USDT")
+  ) {
+    return {
+      base: "USDT",
+      quote: "COP",
+    };
+  }
+
+  /**
+   * USDT <-> BS
+   * 1 USDT = X BS
+   */
+  if (
+    (monedaPago === "USDT" &&
+      monedaDeuda === "BS") ||
+    (monedaPago === "BS" &&
+      monedaDeuda === "USDT")
+  ) {
+    return {
+      base: "USDT",
+      quote: "BS",
+    };
+  }
+
+  /**
+   * USD <-> USDT
+   * 1 USD = X USDT
+   */
+  if (
+    (monedaPago === "USD" &&
+      monedaDeuda === "USDT") ||
+    (monedaPago === "USDT" &&
+      monedaDeuda === "USD")
+  ) {
+    return {
+      base: "USD",
+      quote: "USDT",
+    };
+  }
+
+  return {
+    base: monedaPago,
+    quote: monedaDeuda,
+  };
+}
 
 export function SalidaFormModal({
   open,
@@ -41,16 +188,43 @@ export function SalidaFormModal({
   const isEditing = Boolean(salida);
 
   const [tipo, setTipo] =
-    useState<TipoSalida>('PAGO_ACREEDOR');
+    useState<TipoSalida>("PAGO_ACREEDOR");
 
   const [acreedorId, setAcreedorId] =
-    useState('');
+    useState("");
 
   const [cuentaId, setCuentaId] =
-    useState('');
+    useState("");
 
-  const [montoCop, setMontoCop] =
-    useState('');
+  /**
+   * Monto BASE expresado en la moneda
+   * de la cuenta origen.
+   *
+   * El backend calcula:
+   * - 4x1000 proveedor
+   * - 4x1000 cuenta
+   * - total realmente debitado
+   */
+  const [montoPago, setMontoPago] =
+    useState("");
+
+  /**
+   * Solo aplica para PAGO_ACREEDOR:
+   * moneda de la deuda que se desea reducir.
+   */
+  const [
+    monedaAplicacion,
+    setMonedaAplicacion,
+  ] = useState<Moneda>("COP");
+
+  /**
+   * Tasa VISIBLE capturada por el usuario.
+   * Se transforma antes de enviarse al backend.
+   */
+  const [
+    tasaConversion,
+    setTasaConversion,
+  ] = useState("");
 
   const [
     proveedorCobra4x1000,
@@ -58,16 +232,42 @@ export function SalidaFormModal({
   ] = useState(false);
 
   const [descripcion, setDescripcion] =
-    useState('');
+    useState("");
 
   const [referencia, setReferencia] =
-    useState('');
+    useState("");
 
   const [notas, setNotas] =
-    useState('');
+    useState("");
 
   const [submitting, setSubmitting] =
     useState(false);
+
+  const cuentasActivas = useMemo(
+    () =>
+      cuentas.filter(
+        (cuenta) =>
+          !cuenta.estado ||
+          cuenta.estado === "ACTIVO",
+      ),
+    [cuentas],
+  );
+
+  const selectedCuenta = useMemo(
+    () =>
+      cuentasActivas.find(
+        (cuenta) =>
+          cuenta.id === cuentaId,
+      ) ?? null,
+    [
+      cuentasActivas,
+      cuentaId,
+    ],
+  );
+
+  const monedaPago =
+    (selectedCuenta?.moneda ??
+      "COP") as Moneda;
 
   /**
    * =====================================
@@ -79,32 +279,47 @@ export function SalidaFormModal({
       return;
     }
 
-    /**
-     * EDITAR
-     */
     if (salida) {
+      const actual =
+        salida as SalidaMultimoneda;
+
       setTipo(salida.tipo);
 
       setAcreedorId(
-        salida.acreedor?.id ?? '',
+        salida.acreedor?.id ?? "",
       );
 
       setCuentaId(
-        salida.cuenta?.id ?? '',
+        salida.cuenta?.id ?? "",
       );
 
       /**
-       * Importante:
-       * en PAGO_ACREEDOR debemos cargar
-       * montoBaseCop, no montoCop, porque
-       * montoCop puede contener montoEnviadoCop.
+       * Para registros nuevos usamos montoPago.
+       *
+       * Para registros históricos COP:
+       * montoBaseCop sigue siendo el mejor fallback,
+       * porque montoCop podía contener montoEnviadoCop.
        */
-      setMontoCop(
+      setMontoPago(
         numberToInputValue(
-          salida.montoBaseCop ??
+          actual.montoPago ??
+            salida.montoBaseCop ??
             salida.montoCop,
         ),
       );
+
+      setMonedaAplicacion(
+        (actual.monedaAplicacion ??
+          salida.cuenta?.moneda ??
+          "COP") as Moneda,
+      );
+
+      /**
+       * La tasa guardada es la tasa INTERNA del backend.
+       * Más abajo se convierte a la convención visual
+       * cuando conocemos la moneda de la cuenta.
+       */
+      setTasaConversion("");
 
       setProveedorCobra4x1000(
         salida.proveedorCobra4x1000 ??
@@ -112,37 +327,36 @@ export function SalidaFormModal({
       );
 
       setDescripcion(
-        salida.descripcion ?? '',
+        salida.descripcion ?? "",
       );
 
       setReferencia(
-        salida.referencia ?? '',
+        salida.referencia ?? "",
       );
 
       setNotas(
-        salida.notas ?? '',
+        salida.notas ?? "",
       );
 
       return;
     }
 
-    /**
-     * CREAR
-     */
-    setTipo('PAGO_ACREEDOR');
+    setTipo("PAGO_ACREEDOR");
 
     setAcreedorId(
-      initialAcreedorId ?? '',
+      initialAcreedorId ?? "",
     );
 
-    setCuentaId('');
-    setMontoCop('');
+    setCuentaId("");
+    setMontoPago("");
+    setMonedaAplicacion("COP");
+    setTasaConversion("");
 
     setProveedorCobra4x1000(false);
 
-    setDescripcion('');
-    setReferencia('');
-    setNotas('');
+    setDescripcion("");
+    setReferencia("");
+    setNotas("");
   }, [
     open,
     salida,
@@ -150,89 +364,219 @@ export function SalidaFormModal({
   ]);
 
   /**
-   * =====================================
-   * CÁLCULOS
-   * =====================================
+   * Al cambiar a GASTO / RETIRO:
+   * no existe conversión ni deuda.
    */
-
-  const selectedCuenta = cuentas.find(
-    (cuenta) => cuenta.id === cuentaId,
-  );
-
-  const montoNumber =
-    parseFormattedNumber(montoCop) || 0;
+  useEffect(() => {
+    if (
+      tipo !== "PAGO_ACREEDOR"
+    ) {
+      setTasaConversion("");
+      setProveedorCobra4x1000(
+        false,
+      );
+    }
+  }, [tipo]);
 
   /**
-   * 4x1000 que cobra el proveedor.
+   * Si la cuenta NO es COP, ningún 4x1000
+   * debe permanecer activo.
+   */
+  useEffect(() => {
+    if (
+      selectedCuenta &&
+      selectedCuenta.moneda !== "COP"
+    ) {
+      setProveedorCobra4x1000(
+        false,
+      );
+    }
+  }, [selectedCuenta]);
+
+  const montoPagoNumber =
+    parseFormattedNumber(montoPago) || 0;
+
+  const tasaVisibleNumber =
+    parseFormattedNumber(
+      tasaConversion,
+    ) || 0;
+
+  const mismaMoneda =
+    tipo !== "PAGO_ACREEDOR" ||
+    monedaPago === monedaAplicacion;
+
+  const parTasa = useMemo(
+    () =>
+      getParTasa(
+        monedaPago,
+        monedaAplicacion,
+      ),
+    [
+      monedaPago,
+      monedaAplicacion,
+    ],
+  );
+
+  /**
+   * ==========================================
+   * TASA PARA EL BACKEND
+   * ==========================================
    *
-   * Solo aplica a PAGO_ACREEDOR.
+   * Backend:
+   * 1 monedaAplicacion =
+   * tasaConversionBackend monedaPago
+   *
+   * UI:
+   * 1 base = tasaVisible quote
+   *
+   * Si pago = base y deuda = quote:
+   *
+   * Ej:
+   * pago USD
+   * deuda COP
+   * UI: 1 USD = 3.200 COP
+   *
+   * Backend necesita:
+   * 1 COP = 1/3200 USD
+   *
+   * Por eso enviamos 1 / tasa.
+   *
+   * En sentido inverso enviamos la tasa visible.
+   */
+  const tasaConversionBackend =
+  useMemo(() => {
+    if (mismaMoneda) {
+      return undefined;
+    }
+
+    if (tasaVisibleNumber <= 0) {
+      return undefined;
+    }
+
+    return tasaVisibleNumber;
+  }, [
+    mismaMoneda,
+    tasaVisibleNumber,
+  ]);
+
+  /**
+   * Convierte el monto BASE de la cuenta
+   * a la moneda de la deuda para mostrar
+   * una previsualización igual a la del backend.
+   */
+  const montoAplicadoCalculado =
+    useMemo(() => {
+      if (
+        tipo !== "PAGO_ACREEDOR"
+      ) {
+        return montoPagoNumber;
+      }
+
+      if (mismaMoneda) {
+        return montoPagoNumber;
+      }
+
+      if (tasaVisibleNumber <= 0) {
+        return 0;
+      }
+
+      if (
+        monedaPago ===
+          parTasa.base &&
+        monedaAplicacion ===
+          parTasa.quote
+      ) {
+        return (
+          montoPagoNumber *
+          tasaVisibleNumber
+        );
+      }
+
+      return (
+        montoPagoNumber /
+        tasaVisibleNumber
+      );
+    }, [
+      tipo,
+      mismaMoneda,
+      montoPagoNumber,
+      tasaVisibleNumber,
+      monedaPago,
+      monedaAplicacion,
+      parTasa,
+    ]);
+
+  const puedeAplicar4x1000 =
+    selectedCuenta?.moneda ===
+    "COP";
+
+  /**
+   * 4x1000 del proveedor.
+   *
+   * Solo aplica:
+   * PAGO_ACREEDOR + cuenta COP.
    */
   const impuestoProveedor4x1000 =
     useMemo(() => {
       if (
-        tipo !== 'PAGO_ACREEDOR'
+        tipo !==
+          "PAGO_ACREEDOR" ||
+        !puedeAplicar4x1000 ||
+        !proveedorCobra4x1000
       ) {
-        return 0;
-      }
-
-      if (!proveedorCobra4x1000) {
         return 0;
       }
 
       return (
         Math.round(
           (
-            montoNumber * 0.004 +
+            montoPagoNumber *
+              0.004 +
             Number.EPSILON
-          ) * 100,
+          ) *
+            100,
         ) / 100
       );
     }, [
       tipo,
+      puedeAplicar4x1000,
       proveedorCobra4x1000,
-      montoNumber,
+      montoPagoNumber,
     ]);
 
   /**
-   * Monto realmente enviado.
-   *
-   * Ejemplo:
-   * monto base = 100.000
-   * proveedor = 400
-   *
-   * enviado = 100.400
+   * Monto enviado antes del 4x1000 propio
+   * de la cuenta.
    */
   const montoEnviado =
-    useMemo(() => {
-      if (
-        tipo !== 'PAGO_ACREEDOR'
-      ) {
-        return montoNumber;
-      }
-
-      return (
+    useMemo(
+      () =>
         Math.round(
           (
-            montoNumber +
+            montoPagoNumber +
             impuestoProveedor4x1000 +
             Number.EPSILON
-          ) * 100,
-        ) / 100
-      );
-    }, [
-      tipo,
-      montoNumber,
-      impuestoProveedor4x1000,
-    ]);
+          ) *
+            100,
+        ) / 100,
+      [
+        montoPagoNumber,
+        impuestoProveedor4x1000,
+      ],
+    );
 
   /**
-   * 4x1000 de la cuenta propia.
+   * 4x1000 de la cuenta.
+   * El backend solo lo aplica si:
    *
-   * Se calcula sobre el monto enviado.
+   * cuenta.moneda === COP
+   * &&
+   * cuenta.aplica4x1000
    */
   const impuestoCuenta4x1000 =
     useMemo(() => {
       if (
+        !puedeAplicar4x1000 ||
         !selectedCuenta?.aplica4x1000
       ) {
         return 0;
@@ -241,84 +585,181 @@ export function SalidaFormModal({
       return (
         Math.round(
           (
-            montoEnviado * 0.004 +
+            montoEnviado *
+              0.004 +
             Number.EPSILON
-          ) * 100,
+          ) *
+            100,
         ) / 100
       );
     }, [
+      puedeAplicar4x1000,
       selectedCuenta,
       montoEnviado,
     ]);
 
-  /**
-   * Total que realmente sale de la cuenta.
-   */
   const totalDebitado =
-    useMemo(() => {
-      return (
+    useMemo(
+      () =>
         Math.round(
           (
             montoEnviado +
             impuestoCuenta4x1000 +
             Number.EPSILON
-          ) * 100,
-        ) / 100
+          ) *
+            100,
+        ) / 100,
+      [
+        montoEnviado,
+        impuestoCuenta4x1000,
+      ],
+    );
+
+  /**
+   * Cuando editamos una salida multimoneda,
+   * convertimos la tasa INTERNA almacenada
+   * a la convención visual del formulario.
+   */
+  useEffect(() => {
+    if (!open || !salida) {
+      return;
+    }
+
+    const actual =
+      salida as SalidaMultimoneda;
+
+    if (
+      tipo !== "PAGO_ACREEDOR" ||
+      !selectedCuenta
+    ) {
+      return;
+    }
+
+    const monedaDeuda =
+      (actual.monedaAplicacion ??
+        selectedCuenta.moneda) as Moneda;
+
+    setMonedaAplicacion(
+      monedaDeuda,
+    );
+
+    if (
+      selectedCuenta.moneda ===
+      monedaDeuda
+    ) {
+      setTasaConversion("");
+      return;
+    }
+
+    const tasaInterna =
+      Number(
+        actual.tasaConversion ??
+          0,
       );
-    }, [
-      montoEnviado,
-      impuestoCuenta4x1000,
-    ]);
+
+    if (
+      !Number.isFinite(
+        tasaInterna,
+      ) ||
+      tasaInterna <= 0
+    ) {
+      setTasaConversion("");
+      return;
+    }
+
+    const par = getParTasa(
+      selectedCuenta.moneda as Moneda,
+      monedaDeuda,
+    );
+
+    const tasaVisual =
+      selectedCuenta.moneda ===
+        par.base &&
+      monedaDeuda === par.quote
+        ? 1 / tasaInterna
+        : tasaInterna;
+
+    setTasaConversion(
+      numberToInputValue(
+        tasaVisual,
+      ),
+    );
+  }, [
+    open,
+    salida,
+    selectedCuenta,
+    tipo,
+  ]);
 
   if (!open) {
     return null;
   }
 
-  /**
-   * =====================================
-   * SUBMIT
-   * =====================================
-   */
   async function handleSubmit() {
     try {
       setSubmitting(true);
 
       if (!cuentaId) {
         alert(
-          'Debes seleccionar la cuenta origen.',
+          "Debes seleccionar la cuenta origen.",
         );
         return;
       }
 
       if (
-        !montoNumber ||
-        montoNumber <= 0
+        !montoPagoNumber ||
+        montoPagoNumber <= 0
       ) {
         alert(
-          'Debes indicar un monto mayor a 0.',
+          "Debes indicar un monto mayor a 0.",
         );
         return;
       }
 
       if (
-        tipo === 'PAGO_ACREEDOR' &&
+        tipo ===
+          "PAGO_ACREEDOR" &&
         !acreedorId
       ) {
         alert(
-          'Debes seleccionar el acreedor.',
+          "Debes seleccionar el acreedor.",
+        );
+        return;
+      }
+
+      if (
+        tipo ===
+          "PAGO_ACREEDOR" &&
+        !monedaAplicacion
+      ) {
+        alert(
+          "Debes seleccionar la moneda de la deuda.",
+        );
+        return;
+      }
+
+      if (
+        tipo ===
+          "PAGO_ACREEDOR" &&
+        !mismaMoneda &&
+        (!tasaVisibleNumber ||
+          tasaVisibleNumber <= 0)
+      ) {
+        alert(
+          "Debes indicar una tasa de conversión válida.",
         );
         return;
       }
 
       if (
         (
-          tipo === 'GASTO' ||
-          tipo === 'RETIRO'
+          tipo === "GASTO" ||
+          tipo === "RETIRO"
         ) &&
         !descripcion.trim()
       ) {
         alert(
-          'Debes indicar una descripción.',
+          "Debes indicar una descripción.",
         );
         return;
       }
@@ -327,22 +768,40 @@ export function SalidaFormModal({
         tipo,
 
         acreedorId:
-          tipo === 'PAGO_ACREEDOR'
+          tipo ===
+          "PAGO_ACREEDOR"
             ? acreedorId
             : undefined,
 
         cuentaId,
 
         /**
-         * Siempre mandamos monto base.
+         * Nuevo DTO multimoneda.
          *
-         * El backend recalcula impuestos,
-         * monto enviado y total debitado.
+         * monedaPago NO se envía:
+         * el backend la toma directamente
+         * de la cuenta.
          */
-        montoCop: montoNumber,
+        montoPago:
+          montoPagoNumber,
+
+        monedaAplicacion:
+          tipo ===
+          "PAGO_ACREEDOR"
+            ? monedaAplicacion
+            : undefined,
+
+        tasaConversion:
+          tipo ===
+            "PAGO_ACREEDOR" &&
+          !mismaMoneda
+            ? tasaConversionBackend
+            : undefined,
 
         proveedorCobra4x1000:
-          tipo === 'PAGO_ACREEDOR'
+          tipo ===
+            "PAGO_ACREEDOR" &&
+          puedeAplicar4x1000
             ? proveedorCobra4x1000
             : false,
 
@@ -356,9 +815,6 @@ export function SalidaFormModal({
           notas.trim() || null,
       };
 
-      /**
-       * CREATE / UPDATE
-       */
       if (salida) {
         await api.put(
           `/salidas/${salida.id}`,
@@ -366,7 +822,7 @@ export function SalidaFormModal({
         );
       } else {
         await api.post(
-          '/salidas',
+          "/salidas",
           payload,
         );
       }
@@ -378,8 +834,8 @@ export function SalidaFormModal({
 
       alert(
         isEditing
-          ? 'No fue posible editar la salida.'
-          : 'No fue posible registrar la salida.',
+          ? "No fue posible editar la salida."
+          : "No fue posible registrar la salida.",
       );
     } finally {
       setSubmitting(false);
@@ -389,24 +845,22 @@ export function SalidaFormModal({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
       <section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
-
         {/* HEADER */}
         <div className="mb-6">
           <h2 className="text-lg font-bold text-gray-900">
             {isEditing
-              ? 'Editar salida'
-              : 'Registrar salida'}
+              ? "Editar salida"
+              : "Registrar salida"}
           </h2>
 
           <p className="text-sm text-gray-500">
             {isEditing
-              ? 'Modifica los datos de la salida seleccionada.'
-              : 'Registra pagos a acreedores, gastos o retiros desde cuentas propias.'}
+              ? "Modifica los datos de la salida seleccionada."
+              : "Registra pagos, gastos o retiros desde cuentas COP, USD, USDT o BS."}
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-
           {/* TIPO */}
           <label className="space-y-1 md:col-span-2">
             <span className="text-xs font-semibold uppercase text-gray-500">
@@ -422,7 +876,14 @@ export function SalidaFormModal({
 
                 setTipo(value);
 
-                setAcreedorId('');
+                if (
+                  value !==
+                  "PAGO_ACREEDOR"
+                ) {
+                  setAcreedorId("");
+                }
+
+                setTasaConversion("");
                 setProveedorCobra4x1000(
                   false,
                 );
@@ -451,37 +912,54 @@ export function SalidaFormModal({
 
             <select
               value={cuentaId}
-              onChange={(event) =>
+              onChange={(event) => {
                 setCuentaId(
                   event.target.value,
-                )
-              }
+                );
+
+                setTasaConversion("");
+                setProveedorCobra4x1000(
+                  false,
+                );
+              }}
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
             >
               <option value="">
                 Selecciona una cuenta
               </option>
 
-              {cuentas.map(
+              {cuentasActivas.map(
                 (cuenta) => (
                   <option
                     key={cuenta.id}
                     value={cuenta.id}
                   >
-                    {cuenta.nombre} ·{' '}
+                    {cuenta.nombre} ·{" "}
                     {cuenta.moneda}
-
-                    {cuenta.aplica4x1000
-                      ? ' · 4x1000'
-                      : ''}
+                    {cuenta.moneda ===
+                      "COP" &&
+                    cuenta.aplica4x1000
+                      ? " · 4x1000"
+                      : ""}
                   </option>
                 ),
               )}
             </select>
+
+            {selectedCuenta && (
+              <p className="text-xs text-gray-500">
+                El pago saldrá en{" "}
+                <strong>
+                  {selectedCuenta.moneda}
+                </strong>
+                .
+              </p>
+            )}
           </label>
 
           {/* ACREEDOR / REFERENCIA */}
-          {tipo === 'PAGO_ACREEDOR' ? (
+          {tipo ===
+          "PAGO_ACREEDOR" ? (
             <label className="space-y-1">
               <span className="text-xs font-semibold uppercase text-gray-500">
                 Acreedor / proveedor
@@ -538,63 +1016,194 @@ export function SalidaFormModal({
             </label>
           )}
 
+          {/* MONEDA DE DEUDA */}
+          {tipo ===
+            "PAGO_ACREEDOR" && (
+            <label className="space-y-1">
+              <span className="text-xs font-semibold uppercase text-gray-500">
+                Reducir deuda en
+              </span>
+
+              <select
+                value={
+                  monedaAplicacion
+                }
+                onChange={(event) => {
+                  setMonedaAplicacion(
+                    event.target
+                      .value as Moneda,
+                  );
+
+                  setTasaConversion("");
+                }}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+              >
+                {MONEDAS.map(
+                  (moneda) => (
+                    <option
+                      key={moneda}
+                      value={moneda}
+                    >
+                      {moneda}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+          )}
+
           {/* MONTO */}
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase text-gray-500">
-              Monto base COP
+              {selectedCuenta
+                ? `Monto en ${selectedCuenta.moneda}`
+                : "Monto"}
             </span>
 
             <FormattedNumberInput
-              value={montoCop}
+              value={montoPago}
               onChange={(value) =>
-                setMontoCop(value)
+                setMontoPago(value)
               }
-              placeholder="Monto base COP"
+              placeholder={
+                selectedCuenta
+                  ? `Monto en ${selectedCuenta.moneda}`
+                  : "Monto"
+              }
             />
           </label>
 
-          {/* 4X1000 PROVEEDOR */}
-          {tipo === 'PAGO_ACREEDOR' && (
-            <label className="flex items-center gap-3 rounded-lg border border-gray-100 p-3">
-              <input
-                type="checkbox"
-                checked={
-                  proveedorCobra4x1000
-                }
-                onChange={(event) =>
-                  setProveedorCobra4x1000(
-                    event.target
-                      .checked,
-                  )
-                }
-                className="h-4 w-4 rounded border-gray-300"
-              />
+          {/* TASA DE CONVERSIÓN */}
+          {tipo ===
+            "PAGO_ACREEDOR" &&
+            selectedCuenta &&
+            !mismaMoneda && (
+              <label className="space-y-1">
+                <span className="text-xs font-semibold uppercase text-gray-500">
+                  Tasa
+                </span>
 
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  Proveedor cobra 4x1000
-                </p>
+                <FormattedNumberInput
+                  value={
+                    tasaConversion
+                  }
+                  onChange={(value) =>
+                    setTasaConversion(
+                      value,
+                    )
+                  }
+                  placeholder={`1 ${parTasa.base} = ? ${parTasa.quote}`}
+                />
 
                 <p className="text-xs text-gray-500">
-                  Se suma al monto enviado al
-                  acreedor.
+                  1 {parTasa.base} ={" "}
+                  {tasaVisibleNumber >
+                  0
+                    ? formatAmount(
+                        tasaVisibleNumber,
+                      )
+                    : "?"}{" "}
+                  {parTasa.quote}
+                </p>
+              </label>
+            )}
+
+          {/* PREVISUALIZACIÓN CONVERSIÓN */}
+          {tipo ===
+            "PAGO_ACREEDOR" &&
+            selectedCuenta &&
+            !mismaMoneda &&
+            tasaVisibleNumber >
+              0 && (
+              <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 md:col-span-2">
+                <p className="text-xs font-semibold uppercase text-blue-600">
+                  Aplicación a la deuda
+                </p>
+
+                <p className="mt-1 text-sm font-semibold text-blue-900">
+                  {formatCurrency(
+                    montoPagoNumber,
+                    monedaPago,
+                  )}{" "}
+                  →{" "}
+                  {formatCurrency(
+                    montoAplicadoCalculado,
+                    monedaAplicacion,
+                  )}
+                </p>
+
+                <p className="mt-1 text-xs text-blue-700">
+                  {monedaPago ===
+                    parTasa.base &&
+                  monedaAplicacion ===
+                    parTasa.quote
+                    ? `${formatAmount(
+                        montoPagoNumber,
+                      )} ${monedaPago} × ${formatAmount(
+                        tasaVisibleNumber,
+                      )} = ${formatAmount(
+                        montoAplicadoCalculado,
+                      )} ${monedaAplicacion}`
+                    : `${formatAmount(
+                        montoPagoNumber,
+                      )} ${monedaPago} ÷ ${formatAmount(
+                        tasaVisibleNumber,
+                      )} = ${formatAmount(
+                        montoAplicadoCalculado,
+                      )} ${monedaAplicacion}`}
                 </p>
               </div>
-            </label>
-          )}
+            )}
+
+          {/* 4X1000 PROVEEDOR */}
+          {tipo ===
+            "PAGO_ACREEDOR" &&
+            puedeAplicar4x1000 && (
+              <label className="flex items-center gap-3 rounded-lg border border-gray-100 p-3 md:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={
+                    proveedorCobra4x1000
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setProveedorCobra4x1000(
+                      event.target
+                        .checked,
+                    )
+                  }
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Proveedor cobra
+                    4x1000
+                  </p>
+
+                  <p className="text-xs text-gray-500">
+                    Solo está
+                    disponible porque la
+                    cuenta origen está en
+                    COP.
+                  </p>
+                </div>
+              </label>
+            )}
 
           {/* RESUMEN */}
           <div className="rounded-lg bg-gray-50 p-4 md:col-span-2">
             <div className="grid gap-3 md:grid-cols-4">
-
               <div>
                 <p className="text-xs font-semibold uppercase text-gray-400">
                   Monto base
                 </p>
 
                 <p className="font-bold text-gray-900">
-                  {formatMoney(
-                    montoNumber,
+                  {formatCurrency(
+                    montoPagoNumber,
+                    monedaPago,
                   )}
                 </p>
               </div>
@@ -605,8 +1214,9 @@ export function SalidaFormModal({
                 </p>
 
                 <p className="font-bold text-orange-700">
-                  {formatMoney(
+                  {formatCurrency(
                     impuestoProveedor4x1000,
+                    monedaPago,
                   )}
                 </p>
               </div>
@@ -617,8 +1227,9 @@ export function SalidaFormModal({
                 </p>
 
                 <p className="font-bold text-orange-700">
-                  {formatMoney(
+                  {formatCurrency(
                     impuestoCuenta4x1000,
+                    monedaPago,
                   )}
                 </p>
               </div>
@@ -629,43 +1240,70 @@ export function SalidaFormModal({
                 </p>
 
                 <p className="font-bold text-gray-900">
-                  {formatMoney(
+                  {formatCurrency(
                     totalDebitado,
+                    monedaPago,
                   )}
                 </p>
               </div>
             </div>
+
+            {tipo ===
+              "PAGO_ACREEDOR" && (
+              <div className="mt-4 border-t border-gray-200 pt-3">
+                <p className="text-xs font-semibold uppercase text-gray-400">
+                  Reduce deuda
+                </p>
+
+                <p className="mt-1 font-bold text-blue-700">
+                  {formatCurrency(
+                    montoAplicadoCalculado,
+                    monedaAplicacion,
+                  )}
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Los impuestos no
+                  reducen la deuda. El
+                  backend aplica solamente
+                  el monto base convertido.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* REFERENCIA */}
-          {tipo === 'PAGO_ACREEDOR' && (
-            <label className="space-y-1">
-              <span className="text-xs font-semibold uppercase text-gray-500">
-                Referencia
-              </span>
+          {tipo ===
+            "PAGO_ACREEDOR" && (
+              <label className="space-y-1">
+                <span className="text-xs font-semibold uppercase text-gray-500">
+                  Referencia
+                </span>
 
-              <input
-                type="text"
-                value={referencia}
-                onChange={(event) =>
-                  setReferencia(
-                    event.target.value,
-                  )
-                }
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
-                placeholder="Comprobante, nota, referencia..."
-              />
-            </label>
-          )}
+                <input
+                  type="text"
+                  value={referencia}
+                  onChange={(event) =>
+                    setReferencia(
+                      event.target
+                        .value,
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500"
+                  placeholder="Comprobante, nota, referencia..."
+                />
+              </label>
+            )}
 
           {/* DESCRIPCIÓN */}
           <label
             className={[
-              'space-y-1',
-              tipo !== 'PAGO_ACREEDOR'
-                ? 'md:col-span-2'
-                : '',
-            ].join(' ')}
+              "space-y-1",
+              tipo !==
+              "PAGO_ACREEDOR"
+                ? "md:col-span-2"
+                : "",
+            ].join(" ")}
           >
             <span className="text-xs font-semibold uppercase text-gray-500">
               Descripción
@@ -718,16 +1356,19 @@ export function SalidaFormModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={
+              submitting ||
+              !selectedCuenta
+            }
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
           >
             {submitting
               ? isEditing
-                ? 'Guardando...'
-                : 'Registrando...'
+                ? "Guardando..."
+                : "Registrando..."
               : isEditing
-                ? 'Guardar cambios'
-                : 'Registrar salida'}
+                ? "Guardar cambios"
+                : "Registrar salida"}
           </button>
         </div>
       </section>
