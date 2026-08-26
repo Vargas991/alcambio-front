@@ -1,4 +1,7 @@
+'use client';
+
 import { formatDate, formatMoney, formatNumber } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 import type { MovimientoCuenta } from '@/services/cuentas.server';
 
 type CuentaMovimientosTableProps = {
@@ -63,6 +66,8 @@ function getTipoLabel(tipo: string) {
 export function CuentaMovimientosTable({
   movimientos,
 }: CuentaMovimientosTableProps) {
+  const { zonaHoraria } = useOrganizacion();
+
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
       <div className="border-b border-gray-100 p-6">
@@ -126,7 +131,7 @@ export function CuentaMovimientosTable({
                   className="border-b border-gray-100 transition hover:bg-gray-50"
                 >
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                    {formatDate(movimiento.creadoEn)}
+                    {formatDate(movimiento.creadoEn, zonaHoraria)}
                   </td>
 
                   <td className="px-6 py-4">

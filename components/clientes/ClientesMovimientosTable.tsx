@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { formatDate } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type { ClienteLedgerEntry } from '@/types/clientes';
 import type { Cliente } from '@/types/operaciones';
@@ -706,6 +707,7 @@ export function ClienteMovimientosTable({
   title = 'Movimientos del cliente',
   description = 'Operaciones, entradas, salidas, pagos, abonos y ajustes asociados al cliente.',
 }: ClienteMovimientosTableProps) {
+  const { zonaHoraria } = useOrganizacion();
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
       <div className="border-b border-gray-100 p-6">
@@ -805,6 +807,7 @@ export function ClienteMovimientosTable({
                       <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
                         {formatDate(
                           item.fecha,
+                          zonaHoraria,
                         )}
                       </td>
 

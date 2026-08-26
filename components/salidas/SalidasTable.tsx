@@ -10,6 +10,7 @@ import {
 
 import { api } from '@/lib/api';
 import { formatDate, formatMoney } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 import type { Salida } from '@/types/salidas';
 
 type SalidasTableProps = {
@@ -64,6 +65,7 @@ export function SalidasTable({
   onCreate,
   onEdit,
 }: SalidasTableProps) {
+  const { zonaHoraria } = useOrganizacion();
   const router = useRouter();
 
   const [loadingId, setLoadingId] =
@@ -205,6 +207,7 @@ export function SalidasTable({
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {formatDate(
                         salida.creadoEn,
+                        zonaHoraria,
                       )}
                     </td>
 
