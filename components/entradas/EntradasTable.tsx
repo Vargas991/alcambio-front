@@ -13,6 +13,7 @@ import {
   formatDate,
   formatMoney,
 } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type { Entrada } from '@/types/entradas';
 
@@ -106,6 +107,7 @@ export function EntradasTable({
   onCreate,
   onEdit,
 }: EntradasTableProps) {
+  const { zonaHoraria } = useOrganizacion();
   const router = useRouter();
 
   const [loadingId, setLoadingId] =
@@ -246,6 +248,7 @@ export function EntradasTable({
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
                       {formatDate(
                         entrada.creadoEn,
+                        zonaHoraria,
                       )}
                     </td>
 

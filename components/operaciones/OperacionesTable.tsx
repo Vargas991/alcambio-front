@@ -1,4 +1,7 @@
+"use client";
+
 import { formatDate, formatMoney, formatNumber } from "@/lib/formatters";
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 import type { Cliente, Cuenta, Operacion } from "@/types/operaciones";
 
 import { OperacionActions } from "./OperacionActions";
@@ -204,6 +207,7 @@ function getDestinoLink(operacion: Operacion) {
 
 export function OperacionesTable({ operaciones, clientes, cuentas, promedios, title, description }: OperacionesTableProps) {
   const totals = buildOperacionesTotals(operaciones);
+  const { zonaHoraria } = useOrganizacion();
 
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
@@ -302,7 +306,7 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
                 return (
                   <tr key={operacion.id} className="border-b border-gray-100">
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {formatDate(operacion.fechaOperacion)}
+                      {formatDate(operacion.fechaOperacion, zonaHoraria)}
                     </td>
 
                     {/* <td className="px-6 py-4 text-sm font-semibold text-gray-900">
