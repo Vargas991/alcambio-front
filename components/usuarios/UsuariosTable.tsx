@@ -13,6 +13,7 @@ import {
 
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/formatters';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type {
   Usuario,
@@ -47,6 +48,7 @@ export function UsuariosTable({
   onEdit,
   onPassword,
 }: UsuariosTableProps) {
+  const { zonaHoraria } = useOrganizacion();
   const router = useRouter();
 
   const [loadingId, setLoadingId] =
@@ -205,6 +207,7 @@ export function UsuariosTable({
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {formatDate(
                           usuario.creadoEn,
+                          zonaHoraria,
                         )}
                       </td>
 

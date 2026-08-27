@@ -15,6 +15,11 @@ import {
 
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/formatters';
+import {
+  formatTimeInTimeZone,
+  getTodayInTimeZone,
+} from '@/lib/dates';
+import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
 
 import type {
   DashboardCuentaCaja,
@@ -40,28 +45,16 @@ function formatCurrency(
   }).format(value);
 }
 
-function getTodayLocal() {
-  const formatter = new Intl.DateTimeFormat(
-    'en-CA',
-    {
-      timeZone: 'America/Caracas',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    },
-  );
-
-  return formatter.format(new Date());
-}
-
 export function DashboardResumen({
   initialData,
 }: DashboardResumenProps) {
+  const { zonaHoraria } = useOrganizacion();
+
   const [data, setData] =
     useState<DashboardResumenType>(initialData);
 
   const [fecha, setFecha] = useState(
-    initialData.fecha || getTodayLocal(),
+    initialData.fecha || getTodayInTimeZone(zonaHoraria),
   );
 
   const [loading, setLoading] =
@@ -480,19 +473,9 @@ export function DashboardResumen({
                         className="border-b border-gray-100"
                       >
                         <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                          {new Intl.DateTimeFormat(
-                            'es-VE',
-                            {
-                              timeZone:
-                                'America/Caracas',
-                              hour: '2-digit',
-                              minute:
-                                '2-digit',
-                            },
-                          ).format(
-                            new Date(
-                              movimiento.creadoEn,
-                            ),
+                          {formatTimeInTimeZone(
+                            movimiento.creadoEn,
+                            zonaHoraria,
                           )}
                         </td>
 
