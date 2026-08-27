@@ -23,6 +23,8 @@ export type Salida = {
   impuestoCuenta4x1000Cop?: string;
   totalDebitadoCop?: string;
 
+  modo4x1000Proveedor?: 'SUMAR' | 'RESTAR' | null;
+
   descripcion: string | null;
   referencia: string | null;
   notas: string | null;
