@@ -57,7 +57,7 @@ export function ClienteLedgerFilters() {
       buscar: '',
     });
 
-    router.push('?');
+    router.push('?verTodos=true');
   }
 
   return (

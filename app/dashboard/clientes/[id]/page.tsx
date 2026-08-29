@@ -12,6 +12,8 @@ import type {
   TipoOperacion,
 } from '@/types/operaciones';
 import { getPromedioCompraCuentasServer } from '@/services/cuentas.server';
+import { getTodayInTimeZone } from '@/lib/dates';
+import { getConfiguracionOrganizacionServer } from '@/services/configuracion.server';
 
 type ClienteDetallePageProps = {
   params: Promise<{
@@ -25,6 +27,7 @@ type ClienteDetallePageProps = {
     desde?: string;
     hasta?: string;
     buscar?: string;
+    verTodos?: boolean;
   }>;
 };
 
@@ -33,11 +36,23 @@ export default async function ClienteDetallePage({
   searchParams,
 }: ClienteDetallePageProps) {
   const { id } = await params;
+
   const filters = await searchParams;
+
+  
+  const organizacion =
+  await getConfiguracionOrganizacionServer();
+
+  const hoy = getTodayInTimeZone(
+    organizacion.zonaHoraria,
+  );
+
+const desde = filters.verTodos ? "" :
+  filters.desde || hoy;
 
   const pdfSearchParams = new URLSearchParams();
 
-  if (filters.desde) pdfSearchParams.set('desde', filters.desde);
+  if (filters.desde) pdfSearchParams.set('desde', desde);
   if (filters.hasta) pdfSearchParams.set('hasta', filters.hasta);
   if (filters.tipo) pdfSearchParams.set('tipo', filters.tipo);
   if (filters.estado) pdfSearchParams.set('estado', filters.estado);
@@ -56,7 +71,7 @@ export default async function ClienteDetallePage({
       tipo: filters.tipo,
       estado: filters.estado,
       moneda: filters.moneda,
-      desde: filters.desde,
+      desde: desde,
       hasta: filters.hasta,
       buscar: filters.buscar,
     }),
@@ -66,7 +81,7 @@ export default async function ClienteDetallePage({
       estado: filters.estado,
       moneda: filters.moneda,
       tipoMov: filters.tipoMov,
-      desde: filters.desde,
+      desde: filters.desde || desde,
       hasta: filters.hasta,
       buscar: filters.buscar,
     }),
