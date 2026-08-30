@@ -21,6 +21,10 @@ if (!user) {
     );
   }
 
+  if (user.rol === 'SUPER_ADMIN') {
+    redirect('/super-admin/tenants');
+  }
+
   const configuracion =
     await getConfiguracionOrganizacionServer();
 

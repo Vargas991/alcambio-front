@@ -34,6 +34,7 @@ function getRolLabel(
     RolUsuario,
     string
   > = {
+    SUPER_ADMIN: 'Super admin',
     ADMIN: 'Administrador',
     OPERADOR: 'Operador',
     VISOR: 'Visor',

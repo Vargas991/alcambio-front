@@ -13,7 +13,7 @@ type LoginResponse = {
       id: string;
       nombre: string;
       correo: string;
-      rol: 'ADMIN' | 'OPERADOR' | 'VISOR';
+      rol: 'SUPER_ADMIN' | 'ADMIN' | 'OPERADOR' | 'VISOR';
     };
   };
 };

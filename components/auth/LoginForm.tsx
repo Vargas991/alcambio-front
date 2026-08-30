@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FiLock, FiMail } from 'react-icons/fi';
 import axios from 'axios';
@@ -10,10 +10,12 @@ import type { IdentidadOrganizacion } from '@/types/configuracion';
 
 type LoginFormProps = {
   identidad: IdentidadOrganizacion;
+  tenantSlug?: string;
 };
 
 export function LoginForm({
   identidad,
+  tenantSlug,
 }: LoginFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,31 +28,6 @@ export function LoginForm({
   const [errorMessage, setErrorMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const logoUrl = useMemo(() => {
-    if (!identidad.logoUrl) {
-      return null;
-    }
-
-    if (
-      identidad.logoUrl.startsWith('http://') ||
-      identidad.logoUrl.startsWith('https://')
-    ) {
-      return identidad.logoUrl;
-    }
-
-    const apiPublicUrl =
-      process.env.NEXT_PUBLIC_NEST_API_URL?.replace(/\/+$/, '') ?? '';
-
-    const logoPath =
-      identidad.logoUrl.startsWith('/')
-        ? identidad.logoUrl
-        : `/${identidad.logoUrl}`;
-
-    return apiPublicUrl
-      ? `${apiPublicUrl}${logoPath}`
-      : logoPath;
-  }, [identidad.logoUrl]);
-
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -60,12 +37,18 @@ export function LoginForm({
     setLoading(true);
 
     try {
-      await axios.post('/api/auth/login', {
+      const response = await axios.post('/api/auth/login', {
         correo,
         password,
       });
 
-      router.replace(callbackUrl);
+      const rol = response.data?.data?.usuario?.rol;
+      const destino =
+        rol === 'SUPER_ADMIN' && callbackUrl === '/dashboard'
+          ? '/super-admin/tenants'
+          : callbackUrl;
+
+      router.replace(destino);
       router.refresh();
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -83,12 +66,7 @@ export function LoginForm({
     }
   }
 
-  const logoSrc =
-  identidad.logoUrl
-    ? `/api/organizacion/logo?v=${encodeURIComponent(
-        identidad.logoUrl,
-      )}`
-    : null;
+  const logoSrc = getLoginLogoSrc(identidad.logoUrl);
 
   return (
     <form
@@ -123,7 +101,9 @@ export function LoginForm({
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          Ingresa tus credenciales para continuar.
+          {tenantSlug
+            ? `Ingresa tus credenciales para ${tenantSlug}.`
+            : 'Ingresa tus credenciales para continuar.'}
         </p>
       </div>
 
@@ -196,4 +176,20 @@ export function LoginForm({
       </button>
     </form>
   );
+}
+
+function getLoginLogoSrc(logoUrl: string | null) {
+  if (!logoUrl) {
+    return null;
+  }
+
+  if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+    return logoUrl;
+  }
+
+  if (logoUrl.startsWith('/uploads/')) {
+    return `/api/organizacion/logo?v=${encodeURIComponent(logoUrl)}`;
+  }
+
+  return logoUrl.startsWith('/') ? logoUrl : `/${logoUrl}`;
 }

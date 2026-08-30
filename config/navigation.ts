@@ -18,7 +18,7 @@ type SidebarItemConfig = {
     className?: string;
   }>;
   roles?: Array<
-    'ADMIN' | 'OPERADOR' | 'VISOR'
+    'SUPER_ADMIN' | 'ADMIN' | 'OPERADOR' | 'VISOR'
   >;
 };
 

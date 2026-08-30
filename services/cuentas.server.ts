@@ -9,6 +9,7 @@ const API_URL = process.env.NEST_API_URL ?? 'http://localhost:3000/api';
 
 export type MovimientoCuenta = {
   id: string;
+  tenantId?: string;
   cuentaId: string;
   tipo: string;
   monto: string;

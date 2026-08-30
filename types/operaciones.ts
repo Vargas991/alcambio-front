@@ -24,6 +24,7 @@ export type CuentaOperativa = {
 
 export type MovimientoCliente = {
   id: string;
+  tenantId?: string;
   clienteId: string;
   tipo: string;
   operacionId: string | null;
@@ -40,6 +41,7 @@ export type MovimientoCliente = {
 
 export type Operacion = {
   id: string;
+  tenantId?: string;
   codigo: string;
   nombre: string;
   tipo: TipoOperacion;

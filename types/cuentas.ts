@@ -15,6 +15,7 @@ export type EstadoCuenta = 'ACTIVO' | 'INACTIVO';
 
 export type Cuenta = {
   id: string;
+  tenantId?: string;
   nombre: string;
   moneda: MonedaCuenta;
   categoria: CategoriaCuenta;

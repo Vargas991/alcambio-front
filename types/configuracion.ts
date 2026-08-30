@@ -1,5 +1,6 @@
 export type ConfiguracionOrganizacion = {
   id: string;
+  tenantId: string;
 
   nombre: string;
   logoUrl: string | null;

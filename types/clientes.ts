@@ -1,5 +1,6 @@
 export type ClienteResumenItem = {
   id: string;
+  tenantId?: string;
   nombre: string;
   documento: string | null;
   telefono: string | null;
@@ -12,6 +13,7 @@ export type ClienteResumenItem = {
 export type ClientePerfil = {
   cliente: {
     id: string;
+    tenantId?: string;
     nombre: string;
     documento: string | null;
     telefono: string | null;
@@ -32,6 +34,7 @@ export type ClientePerfil = {
 
 export type ClienteLedgerRelacion = {
   id: string;
+  tenantId?: string;
   nombre: string;
   documento?: string | null;
   telefono?: string | null;
@@ -172,6 +175,7 @@ export type ClienteLedgerEntry = {
 export type ClienteLedgerResponse = {
   cliente: {
     id: string;
+    tenantId?: string;
     nombre: string;
     documento: string | null;
     telefono: string | null;

@@ -7,6 +7,7 @@ export type EstadoEntrada = 'REGISTRADA' | 'CANCELADA';
 
 export type Entrada = {
   id: string;
+  tenantId?: string;
   tipo: TipoEntrada;
   estado: EstadoEntrada;
 
