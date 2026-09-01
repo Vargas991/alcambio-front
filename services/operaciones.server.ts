@@ -8,6 +8,7 @@ import type {
   EstadoOperacion,
   Moneda,
   Operacion,
+  PaginatedOperaciones,
   TipoOperacion,
 } from '@/types/operaciones';
 import { Cuenta } from '@/types/cuentas';
@@ -27,14 +28,16 @@ export type GetOperacionesServerParams = {
   desde?: string;
   hasta?: string;
   buscar?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 function buildQueryParams(params?: GetOperacionesServerParams) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params ?? {}).forEach(([key, value]) => {
-    if (value) {
-      searchParams.set(key, value);
+    if (value !== undefined && value !== null && value !== '') {
+      searchParams.set(key, String(value));
     }
   });
 
@@ -70,14 +73,28 @@ async function serverApiGet<T>(path: string): Promise<T> {
 
 export async function getOperacionesServer(
   params?: GetOperacionesServerParams,
-) {
+): Promise<PaginatedOperaciones> {
   const query = buildQueryParams(params);
 
-  const response = await serverApiGet<ApiResponse<Operacion[]>>(
+  const response = await serverApiGet<ApiResponse<PaginatedOperaciones>>(
     `/operaciones${query}`,
   );
 
-  return response.data;
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      meta: {
+        page: 1,
+        pageSize: data.length,
+        total: data.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  return data;
 }
 
 export async function getClientesServer() {

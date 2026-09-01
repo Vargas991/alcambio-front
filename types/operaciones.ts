@@ -85,6 +85,18 @@ export type Cuenta = {
   estado: string;
 };
 
+export type PaginatedMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type PaginatedOperaciones = {
+  items: Operacion[];
+  meta: PaginatedMeta;
+};
+
 export type ApiResponse<T> = {
   success: boolean;
   message: string;

@@ -63,7 +63,7 @@ const desde = filters.verTodos ? "" :
   }`;
 
 
-  const [perfil, operaciones, ledger, clientes, cuentas, promedios] = await Promise.all([
+  const [perfil, operacionesResult, ledger, clientes, cuentas, promedios] = await Promise.all([
     getClientePerfilServer(id),
 
     getOperacionesServer({
@@ -111,7 +111,7 @@ const desde = filters.verTodos ? "" :
       />
 
       <ClientePerfilTabs
-        operaciones={operaciones}
+        operaciones={operacionesResult.items}
         movimientos={ledger.movimientos}
         promedios={promedios}
         cuentas={cuentas}

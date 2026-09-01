@@ -35,14 +35,31 @@ export function OperacionesFilters() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
 
     if (buscar.trim()) params.set('buscar', buscar.trim());
+    else params.delete('buscar');
+
     if (tipo) params.set('tipo', tipo);
+    else params.delete('tipo');
+
     if (estado) params.set('estado', estado);
+    else params.delete('estado');
+
     if (moneda) params.set('moneda', moneda);
+    else params.delete('moneda');
+
     if (desde) params.set('desde', desde);
+    else params.delete('desde');
+
     if (hasta) params.set('hasta', hasta);
+    else params.delete('hasta');
+
+    params.delete('page');
+    params.set('page', '1');
+
+    const pageSize = searchParams.get('pageSize');
+    if (pageSize) params.set('pageSize', pageSize);
 
     const query = params.toString();
 
@@ -65,7 +82,19 @@ export function OperacionesFilters() {
     setDesde('');
     setHasta('');
     shouldScrollRef.current = true;
-    router.push(pathname, { scroll: false });
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete('buscar');
+    nextParams.delete('tipo');
+    nextParams.delete('estado');
+    nextParams.delete('moneda');
+    nextParams.delete('desde');
+    nextParams.delete('hasta');
+    nextParams.delete('page');
+    nextParams.delete('pageSize');
+
+    const href = nextParams.toString() ? `${pathname}?${nextParams.toString()}` : pathname;
+    router.push(href, { scroll: false });
 
     if (!paramsKey) {
       shouldScrollRef.current = false;

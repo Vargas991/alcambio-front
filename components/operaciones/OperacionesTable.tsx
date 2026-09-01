@@ -2,15 +2,17 @@
 
 import { formatDate, formatMoney, formatNumber } from "@/lib/formatters";
 import { useOrganizacion } from '@/components/organizacion/OrganizacionProvider';
-import type { Cliente, Cuenta, Operacion } from "@/types/operaciones";
+import type { Cliente, Cuenta, Operacion, PaginatedMeta } from "@/types/operaciones";
 
 import { OperacionActions } from "./OperacionActions";
 import Link from "next/link";
+import { usePathname, useSearchParams } from 'next/navigation';
 import { FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import { PromedioCompraCuenta } from '@/types/cuentas';
 
 type OperacionesTableProps = {
   operaciones: Operacion[];
+  meta?: PaginatedMeta;
   clientes: Cliente[];
   cuentas: Cuenta[];
   promedios?: PromedioCompraCuenta[];
@@ -110,65 +112,6 @@ function getNotaText(nota: string | null) {
   return nota;
 }
 
-function buildOperacionesTotals(operaciones: Operacion[]) {
-  const registradas = operaciones.filter(
-    (operacion) => operacion.estado === "REGISTRADA"
-  );
-
-  const canceladas = operaciones.filter(
-    (operacion) => operacion.estado === "CANCELADA"
-  );
-
-  const ventas = registradas.filter((operacion) => operacion.tipo === "VENTA");
-
-  const directas = registradas.filter(
-    (operacion) => operacion.tipo === "OPERACION_DIRECTA"
-  );
-
-  const compras = registradas.filter(
-    (operacion) => operacion.tipo === "COMPRA"
-  );
-
-  const totalMontoTransaccion = registradas.reduce(
-    (total, operacion) => total + Number(operacion.montoTransaccion),
-    0
-  );
-
-  const totalCompraCop = registradas.reduce(
-    (total, operacion) => total + Number(operacion.totalCompraCop),
-    0
-  );
-
-  const totalVentaCop = registradas.reduce((total, operacion) => {
-    if (operacion.tipo === "COMPRA") {
-      return total;
-    }
-
-    return total + Number(operacion.totalVentaCop);
-  }, 0);
-
-  const utilidadRealCop = registradas.reduce((total, operacion) => {
-    if (operacion.tipo !== "VENTA" && operacion.tipo !== "OPERACION_DIRECTA") {
-      return total;
-    }
-
-    return total + Number(operacion.utilidadCop);
-  }, 0);
-
-  return {
-    cantidadTotal: operaciones.length,
-    cantidadRegistradas: registradas.length,
-    cantidadCanceladas: canceladas.length,
-    cantidadVentas: ventas.length,
-    cantidadDirectas: directas.length,
-    cantidadCompras: compras.length,
-    totalMontoTransaccion,
-    totalCompraCop,
-    totalVentaCop,
-    utilidadRealCop,
-  };
-}
-
 function getDestinoLink(operacion: Operacion) {
   if (operacion.tipo === 'VENTA') {
     return {
@@ -205,9 +148,21 @@ function getDestinoLink(operacion: Operacion) {
   return null;
 }
 
-export function OperacionesTable({ operaciones, clientes, cuentas, promedios, title, description }: OperacionesTableProps) {
-  const totals = buildOperacionesTotals(operaciones);
+export function OperacionesTable({ operaciones, meta, clientes, cuentas, promedios, title, description }: OperacionesTableProps) {
   const { zonaHoraria } = useOrganizacion();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentPage = meta?.page ?? 1;
+  const totalPages = meta?.totalPages ?? 1;
+
+  const buildPageHref = (page: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', String(page));
+    if (!params.has('pageSize') && meta?.pageSize) {
+      params.set('pageSize', String(meta.pageSize));
+    }
+    return `${pathname}?${params.toString()}`;
+  };
 
   return (
     <section className="overflow-hidden rounded-xl bg-white shadow-md">
@@ -224,8 +179,38 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
         )}
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-max-con min-w-[720px] table-auto">
+      {meta && meta.total > 0 && (
+        <div className="flex flex-col gap-3 border-b border-gray-100 px-6 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-gray-600">
+            Mostrando {operaciones.length} de {meta.total} operaciones
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href={currentPage > 1 ? buildPageHref(currentPage - 1) : '#'}
+              aria-disabled={currentPage <= 1}
+              className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium ${currentPage <= 1 ? 'pointer-events-none cursor-not-allowed border-gray-200 text-gray-400' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            >
+              Anterior
+            </Link>
+
+            <span className="text-sm font-medium text-gray-700">
+              Página {currentPage} {totalPages > 0 ? `de ${totalPages}` : ''}
+            </span>
+
+            <Link
+              href={currentPage < totalPages ? buildPageHref(currentPage + 1) : '#'}
+              aria-disabled={currentPage >= totalPages}
+              className={`inline-flex items-center rounded-lg border px-3 py-2 text-sm font-medium ${currentPage >= totalPages ? 'pointer-events-none cursor-not-allowed border-gray-200 text-gray-400' : 'border-gray-200 text-gray-700 hover:bg-gray-50'}`}
+            >
+              Siguiente
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full overflow-x-auto">
+        <table className="min-w-full table-auto border-collapse">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="px-6 py-3 text-left text-xs font-semibold uppercase text-gray-400">
@@ -413,45 +398,6 @@ export function OperacionesTable({ operaciones, clientes, cuentas, promedios, ti
               })
             )}
 
-            <tr className="bg-gray-50">
-              <td
-                colSpan={5}
-                className="px-6 py-4 text-sm font-bold uppercase text-gray-900"
-              >
-                Totales de operaciones registradas
-              </td>
-
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
-                {/* {formatNumber(totals.totalMontoTransaccion)} */}
-              </td>
-
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-400">
-                {/* - */}
-              </td>
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-400">
-                {formatMoney(totals.totalCompraCop)}
-              </td>
-
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-400">
-                {/* - */}
-              </td>
-
-              <td className="px-6 py-4 text-right text-sm font-bold text-gray-900">
-                {formatMoney(totals.totalVentaCop)}
-              </td>
-
-              <td className="px-6 py-4 text-right text-sm font-bold text-green-700">
-                {formatMoney(totals.utilidadRealCop)}
-              </td>
-
-              {/* <td
-                colSpan={3}
-                className="px-6 py-4 text-sm font-semibold text-gray-500"
-              >
-                {totals.cantidadRegistradas} registradas ·{" "}
-                {totals.cantidadCanceladas} canceladas
-              </td> */}
-            </tr>
           </tbody>
         </table>
       </div>

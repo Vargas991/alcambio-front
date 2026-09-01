@@ -21,6 +21,8 @@ type OperacionesPageProps = {
     desde?: string;
     hasta?: string;
     buscar?: string;
+    page?: string;
+    pageSize?: string;
   }>;
 };
 
@@ -28,8 +30,10 @@ export default async function OperacionesPage({
   searchParams,
 }: OperacionesPageProps) {
   const filters = await searchParams;
+  const page = Number(filters.page ?? 1);
+  const pageSize = Number(filters.pageSize ?? 20);
 
-  const [operaciones, clientes, cuentas, promedios] = await Promise.all([
+  const [operacionesResult, clientes, cuentas, promedios] = await Promise.all([
     getOperacionesServer({
       tipo: filters.tipo,
       estado: filters.estado,
@@ -37,19 +41,29 @@ export default async function OperacionesPage({
       desde: filters.desde,
       hasta: filters.hasta,
       buscar: filters.buscar,
+      page: Number.isFinite(page) && page > 0 ? page : 1,
+      pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 20,
     }),
     getClientesServer(),
     getCuentasServer(),
-    getPromedioCompraCuentasServer()
+    getPromedioCompraCuentasServer(),
   ]);
 
   return (
     <div className="space-y-6">
-      <OperacionForm clientes={clientes} cuentas={cuentas} promedios={promedios}/>
+      <OperacionForm clientes={clientes} cuentas={cuentas} promedios={promedios} />
 
       <OperacionesFilters />
 
-      <OperacionesTable operaciones={operaciones} clientes={clientes} cuentas={cuentas} promedios={promedios} title="Tabla de operaciones" description="Ventas normales y operaciones directas registradas." />
+      <OperacionesTable
+        operaciones={operacionesResult.items}
+        meta={operacionesResult.meta}
+        clientes={clientes}
+        cuentas={cuentas}
+        promedios={promedios}
+        title="Tabla de operaciones"
+        description="Ventas normales y operaciones directas registradas."
+      />
     </div>
   );
 }
