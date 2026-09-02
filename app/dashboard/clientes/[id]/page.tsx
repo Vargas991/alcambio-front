@@ -27,7 +27,7 @@ type ClienteDetallePageProps = {
     desde?: string;
     hasta?: string;
     buscar?: string;
-    verTodos?: boolean;
+    verTodos?: string;
   }>;
 };
 
@@ -47,16 +47,17 @@ export default async function ClienteDetallePage({
     organizacion.zonaHoraria,
   );
 
-const desde = filters.verTodos ? "" :
-  filters.desde || hoy;
+  const verTodos = filters.verTodos === 'true';
+  const desde = verTodos ? '' : filters.desde || hoy;
 
   const pdfSearchParams = new URLSearchParams();
 
-  if (filters.desde) pdfSearchParams.set('desde', desde);
+  if (desde) pdfSearchParams.set('desde', desde);
   if (filters.hasta) pdfSearchParams.set('hasta', filters.hasta);
   if (filters.tipo) pdfSearchParams.set('tipo', filters.tipo);
   if (filters.estado) pdfSearchParams.set('estado', filters.estado);
   if (filters.tipoMov) pdfSearchParams.set('tipoMov', filters.tipoMov);
+  if (filters.moneda) pdfSearchParams.set('moneda', filters.moneda);
 
   const pdfUrl = `/api/clientes/${id}/ledger/pdf${
     pdfSearchParams.toString() ? `?${pdfSearchParams.toString()}` : ''

@@ -32,11 +32,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const hasta = request.nextUrl.searchParams.get('hasta');
     const tipo = request.nextUrl.searchParams.get('tipo');
     const estado = request.nextUrl.searchParams.get('estado');
+    const tipoMov = request.nextUrl.searchParams.get('tipoMov');
+    const moneda = request.nextUrl.searchParams.get('moneda');
 
     if (desde) allowedParams.set('desde', desde);
     if (hasta) allowedParams.set('hasta', hasta);
     if (tipo) allowedParams.set('tipo', tipo);
     if (estado) allowedParams.set('estado', estado);
+    if (tipoMov) allowedParams.set('tipoMov', tipoMov);
+    if (moneda) allowedParams.set('moneda', moneda);
 
     const query = allowedParams.toString();
 
